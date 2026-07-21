@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>AUDIO INGGRIS - Kelas Pakree</title>
+<!-- Puter.js: mesin text-to-speech yang bisa dipanggil langsung dari browser,
+     gratis, tanpa API key/pendaftaran. Menggantikan Piper (WASM, rewan crash)
+     dan Google Translate TTS (dibatasi CORS/rate-limit). -->
+<script src="https://js.puter.com/v2/"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;700;800&display=swap');
   * { box-sizing: border-box; font-family: 'Nunito', system-ui, sans-serif; }
@@ -29,12 +33,8 @@
   input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:30px; height:30px; border-radius:50%; background:#fff;
            border:3px solid #6C5CE7; box-shadow:0 3px 8px rgba(0,0,0,.2); cursor:pointer; }
   input[type=range]::-moz-range-thumb { width:30px; height:30px; border-radius:50%; background:#fff; border:3px solid #6C5CE7; cursor:pointer; }
-  select { width:100%; margin-top:6px; height:42px; border-radius:12px; border:2px solid #dfe6e9; padding:0 10px; font-size:13px;
-           font-weight:700; background:#fff; outline:none; }
-  select:focus { border-color:#6C5CE7; }
   .voice-note { font-size:10px; color:#636e72; margin-top:4px; min-height:14px; }
   .engine-box { margin-top:10px; border-radius:14px; background:#f8f9ff; border:1px dashed #a29bfe; padding:10px; }
-  .engine-row { display:flex; align-items:center; gap:8px; justify-content:space-between; flex-wrap:wrap; }
   .btn-download-voice { background:#6C5CE7; color:#fff; font-weight:800; font-size:12px; padding:8px 14px; border-radius:999px; }
   .btn-download-voice:disabled { opacity:.55; }
   .progress-outer { height:8px; border-radius:999px; background:#e6e6ff; overflow:hidden; margin-top:8px; display:none; }
@@ -44,7 +44,6 @@
   .chip { display:inline-flex; flex-direction:column; padding:6px 10px; border-radius:999px; font-size:11px; font-weight:800;
           border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; }
   .chip.active { background:#6C5CE7; color:#fff; border-color:#6C5CE7; transform:scale(1.08); z-index:1; box-shadow:0 3px 8px rgba(0,0,0,.15); }
-  .chip.phrasal { background:#ffeaa7; border-color:#fdcb6e; }
   .no-sound { outline:3px solid #FF7675 !important; outline-offset:1px; }
   .chip small { font-size:9px; font-weight:700; opacity:.75; }
   .sentences { display:flex; flex-direction:column; gap:8px; max-height:160px; overflow:auto; margin-top:8px; }
@@ -110,17 +109,14 @@
     <!-- MESIN SUARA -->
     <div class="engine-box">
       <div style="font-size:11px;font-weight:800;color:#6C5CE7;margin-bottom:6px">🎙️ MESIN SUARA</div>
-      <div class="engine-row">
-        <div style="font-size:11px;color:#636e72;flex:1">
-          Online: suara Google Translate (jelas).<br>
-          Offline: suara neural lokal (Piper) — perlu disiapkan sekali.
-        </div>
-        <button class="btn-download-voice" id="btnPrepVoice">📥 Siapkan Suara Offline</button>
+      <div style="font-size:11px;color:#636e72;margin-bottom:6px">
+        Suara diambil online (neural, jelas) tiap kali diputar, lalu otomatis
+        disimpan di HP ini supaya pemutaran berikutnya instan &amp; tetap
+        bekerja walau internet mati.
       </div>
-      <div class="progress-outer" id="prepProgressOuter"><div class="progress-inner" id="prepProgressInner"></div></div>
-      <div class="voice-note" id="voiceStatusNote">Memeriksa status suara offline...</div>
-      <button class="btn-download-voice" id="btnTestOffline" style="background:#00B894;margin-top:8px;width:100%">🧪 Tes Suara Offline (diagnostik)</button>
-      <div class="voice-note" id="offlineTestNote"></div>
+      <div class="voice-note" id="voiceStatusNote">Memeriksa mesin suara...</div>
+      <button class="btn-download-voice" id="btnTestVoice" style="background:#00B894;margin-top:8px;width:100%">🧪 Tes Suara</button>
+      <div class="voice-note" id="voiceTestNote"></div>
     </div>
 
     <!-- UNTUK GURU: BUAT SEMUA SUARA SEKALIGUS DI LAPTOP -->
@@ -128,16 +124,15 @@
       <div style="font-size:11px;font-weight:800;color:#00B894;margin-bottom:6px">👩‍🏫 KHUSUS GURU (di laptop, sebelum dibagikan ke orang tua)</div>
       <div style="font-size:11px;color:#636e72;margin-bottom:8px">
         Tekan tombol ini SEKALI setelah teks lengkap dimasukkan. Semua suara kata &amp;
-        kalimat (Inggris + terjemahan) akan dibuat sekarang di laptop, lalu ikut
+        kalimat (Inggris + terjemahan) akan dibuat sekarang, lalu ikut
         tertanam saat "Download Aplikasi" ditekan — supaya HP orang tua tinggal
-        memutar, tanpa perlu membuat suara sendiri.
+        memutar, tanpa perlu internet/proses apa pun.
       </div>
       <button class="btn-download-voice" id="btnGenerateAll" style="background:#00B894;width:100%">🎬 Buat Semua Suara Sekarang</button>
       <div class="progress-outer" id="genAllProgressOuter"><div class="progress-inner" id="genAllProgressInner" style="background:#00B894"></div></div>
       <div class="voice-note" id="genAllNote"></div>
     </div>
   </div>
-
 
   <!-- PRATINJAU -->
   <div class="card">
@@ -198,69 +193,27 @@
 
   <div class="card" style="text-align:center">
     <button class="btn-app" id="btnDownloadApp">⬇️ DOWNLOAD APLIKASI</button>
-    <div class="credit">Built by Masyuri Pakree — direvisi dengan mesin suara hybrid (cache + online + offline neural)</div>
+    <div class="credit">Built by Masyuri Pakree — mesin suara: Puter.js (neural, online) + cache offline</div>
   </div>
 
 </div>
 
 <script type="module">
 /* =========================================================================
-   AUDIO INGGRIS - KELAS PAKREE (v2)
+   AUDIO INGGRIS - KELAS PAKREE (v3)
    ------------------------------------------------------------------------
-   Mesin suara hybrid, urutan prioritas setiap kali membaca teks:
-     1. CACHE   -> audio yang sudah pernah dibuat tersimpan di HP (instan,
-                   offline, tidak butuh internet lagi).
-     2. ONLINE  -> jika ada internet, pakai suara Google Translate asli
-                   (paling jelas & natural, ini yang dimaksud "kualitas
-                   Google Translate").
-     3. OFFLINE NEURAL (Piper) -> jika tidak ada internet & belum ada
-                   cache, pakai mesin text-to-speech neural yang berjalan
-                   000% di dalam HP (WASM), TIDAK bergantung pada suara
-                   bawaan HP / aplikasi Google TTS yang terinstal.
-   Hasil sintesis offline neural otomatis disimpan ke cache supaya kata/
-   kalimat yang sama berikutnya langsung instan tanpa proses ulang.
+   Mesin suara: Puter.js (puter.ai.txt2speech) - dipanggil langsung dari
+   browser, gratis, tanpa API key. Menggantikan percobaan sebelumnya
+   (Piper WASM lokal yang sering crash "Aborted()", dan Google Translate
+   TTS yang diblokir CORS untuk pengambilan bytes).
+
+   Urutan prioritas tiap kali mengucapkan sebuah teks:
+     1. TERTANAM di file ini (kalau file hasil "Buat Semua Suara" + Download)
+        - paling andal, tidak butuh internet/proses apa pun.
+     2. CACHE tersimpan di HP ini (IndexedDB) dari pemakaian sebelumnya.
+     3. ONLINE lewat Puter.js - dibuat saat itu juga, lalu otomatis disimpan
+        ke cache supaya pemakaian berikutnya instan & offline.
    ========================================================================= */
-
-// ---- Import mesin TTS neural (Piper) yang berjalan di browser (WASM) ----
-let piperTTS = null;
-let piperLoadError = null;
-try {
-  piperTTS = await import('https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web/+esm');
-} catch (err) {
-  piperLoadError = err;
-  console.warn('Gagal memuat mesin suara offline (Piper). Mode offline neural tidak akan tersedia.', err);
-}
-
-const VOICE_EN_DEFAULT = 'en_US-hfc_female-medium';   // suara Inggris offline (jelas, netral)
-const VOICE_ID_DEFAULT = 'id_ID-news_tts-medium';     // suara Indonesia offline
-let VOICE_EN = VOICE_EN_DEFAULT;
-let VOICE_ID = VOICE_ID_DEFAULT;
-
-/**
- * Piper punya daftar suara resmi (manifest) yang bisa berubah/berbeda dari
- * yang saya kira. Kalau id yang di-hardcode di atas ternyata tidak ada di
- * daftar resmi, download/predict akan gagal DIAM-DIAM. Fungsi ini mengecek
- * ke daftar resmi saat aplikasi dibuka, dan otomatis memilih suara en_US /
- * id_ID pertama yang benar-benar ada kalau id default tidak ditemukan.
- */
-async function resolveAvailableVoices() {
-  if (!piperTTS || typeof piperTTS.voices !== 'function') return;
-  try {
-    const list = await piperTTS.voices();
-    const ids = list.map((v) => v.key || v.id || v.name).filter(Boolean);
-    if (!ids.includes(VOICE_EN)) {
-      const fallback = ids.find((id) => id.startsWith('en_US')) || ids.find((id) => id.startsWith('en_'));
-      if (fallback) { console.warn(`Voice ${VOICE_EN} tidak ditemukan, pakai ${fallback}`); VOICE_EN = fallback; }
-    }
-    if (!ids.includes(VOICE_ID)) {
-      const fallback = ids.find((id) => id.startsWith('id_ID')) || ids.find((id) => id.startsWith('id_'));
-      if (fallback) { console.warn(`Voice ${VOICE_ID} tidak ditemukan, pakai ${fallback}`); VOICE_ID = fallback; }
-      else { console.warn('Tidak ada suara Indonesia offline di manifest Piper.'); VOICE_ID = null; }
-    }
-  } catch (err) {
-    console.warn('Gagal memuat daftar suara Piper:', err);
-  }
-}
 
 // ---------------------------------------------------------------------
 // UTIL
@@ -270,7 +223,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-// hash string pendek untuk kunci cache (djb2)
 function hashKey(str) {
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h) + str.charCodeAt(i);
@@ -278,9 +230,7 @@ function hashKey(str) {
 }
 
 // ---------------------------------------------------------------------
-// CACHE AUDIO (IndexedDB) - hanya menyimpan audio hasil sintesis offline
-// (Piper), karena audio online (Google) diputar langsung tanpa perlu
-// disimpan ulang.
+// CACHE AUDIO (IndexedDB)
 // ---------------------------------------------------------------------
 const AudioCache = (() => {
   let dbPromise = null;
@@ -316,8 +266,6 @@ const AudioCache = (() => {
         });
       } catch { /* abaikan kegagalan cache, tidak fatal */ }
     },
-    // Ambil SEMUA {key, blob} tersimpan - dipakai untuk menanam audio ke
-    // dalam file HTML saat tombol "Download Aplikasi" ditekan.
     async getAllEntries() {
       try {
         const db = await getDb();
@@ -335,7 +283,6 @@ const AudioCache = (() => {
   };
 })();
 
-// ---- Bantuan konversi Blob <-> base64 (untuk menanam audio ke file HTML) ----
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -351,11 +298,9 @@ function base64ToBlob(b64, mime) {
   return new Blob([bytes], { type: mime });
 }
 
-// Audio yang sudah "ditanam" (baked-in) di dalam file HTML ini saat diunduh.
-// Dicek PALING PERTAMA sebelum cache/piper/online - inilah yang membuat file
-// hasil unduhan bisa langsung bicara tanpa proses apa pun di HP orang tua.
+// Audio yang sudah "ditanam" di file ini sejak diunduh - dicek PALING
+// PERTAMA, membuat file hasil unduhan bisa langsung bicara tanpa internet.
 let bundledAudioMap = new Map();
-
 function loadBundledAudio() {
   const tag = document.getElementById('bundled-audio-data');
   if (!tag) return;
@@ -364,7 +309,6 @@ function loadBundledAudio() {
     for (const [key, { b64, mime }] of Object.entries(data)) {
       bundledAudioMap.set(key, base64ToBlob(b64, mime));
     }
-    console.log(`${bundledAudioMap.size} audio tertanam berhasil dimuat.`);
   } catch (err) {
     console.warn('Gagal memuat audio tertanam:', err);
   }
@@ -373,7 +317,7 @@ function loadBundledAudio() {
 // ---------------------------------------------------------------------
 // TERJEMAHAN TEKS (bukan audio) - untuk menampilkan & mengucapkan arti
 // ---------------------------------------------------------------------
-const textTranslationMemory = new Map(); // key: `${text}` -> hasil terjemahan id
+const textTranslationMemory = new Map();
 const SKIP_WORDS = new Set(['a', 'an', 'the']);
 
 async function translateText(text) {
@@ -388,7 +332,7 @@ async function translateText(text) {
       const data = await res.json();
       result = (data?.[0] || []).map((seg) => seg[0]).join('').trim();
     }
-  } catch { /* coba fallback di bawah */ }
+  } catch { /* coba fallback */ }
   if (!result) {
     try {
       const url2 = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|id`;
@@ -418,54 +362,37 @@ function parseSentences(text) {
 }
 
 // ---------------------------------------------------------------------
-// MESIN SUARA HYBRID
+// MESIN SUARA: PUTER.JS
 // ---------------------------------------------------------------------
-let piperVoicesReady = new Set(); // voiceId yang sudah tersimpan di HP (OPFS)
-let googleFailStreak = 0;         // berapa kali online gagal beruntun dalam sesi berjalan
-const GOOGLE_FAIL_LIMIT = 3;      // setelah ini, jalur online dihentikan sementara
-let offlineVoicesAttempted = false; // agar auto-persiapan offline hanya dicoba otomatis sekali
-let lastOfflineError = '';
+const PUTER_EN_OPTS = { provider: 'aws-polly', voice: 'Joanna', engine: 'neural', language: 'en-US' };
+const PUTER_ID_OPTS = { provider: 'aws-polly', voice: 'Dewi', language: 'id-ID' };
 
-async function refreshPiperStoredVoices() {
-  if (!piperTTS) return;
-  try {
-    const stored = await piperTTS.stored();
-    piperVoicesReady = new Set(stored);
-  } catch { /* abaikan */ }
+async function synthesizeWithPuter(text, lang) {
+  if (!window.puter?.ai?.txt2speech) throw new Error('Puter.js belum termuat');
+  const opts = lang === 'id' ? PUTER_ID_OPTS : PUTER_EN_OPTS;
+  return await window.puter.ai.txt2speech(text, opts); // -> HTMLAudioElement
 }
 
-async function synthesizeWithPiper(text, lang) {
-  if (!piperTTS) throw new Error('Mesin suara offline tidak dimuat');
-  const voiceId = lang === 'id' ? VOICE_ID : VOICE_EN;
-  const wavBlob = await piperTTS.predict({ text, voiceId });
-  return wavBlob;
-}
+let onlineFailStreak = 0;
+const ONLINE_FAIL_LIMIT = 3;
 
 // ---------------------------------------------------------------------
 // PENJAGA ANTI-TABRAKAN AUDIO
 // ---------------------------------------------------------------------
-// Hanya SATU audio yang boleh benar-benar memanggil play() di satu waktu.
-// - activeAudioEl / activeFinish menunjuk ke audio yang SEDANG berjalan.
-// - stopAllAudio() memaksa audio itu berhenti & menyelesaikan promise-nya
-//   SEKARANG JUGA (tidak menunggu timeout), supaya proses lama tidak
-//   menggantung dan diam-diam lanjut memutar setelahnya.
-// - Setiap proses "basi" (dari sesi mode sebelumnya) mengecek isStale()
-//   TEPAT SEBELUM memanggil audio.play() - bukan cuma di awal fungsi -
-//   supaya proses yang sudah lama berjalan di jaringan/terjemahan tidak
-//   menyelinap memutar suara setelah mode baru sudah mulai.
 let activeAudioEl = null;
 let activeFinish = null;
 
 function stopAllAudio() {
   if (activeFinish) { const f = activeFinish; activeFinish = null; f(); }
   if (activeAudioEl) { try { activeAudioEl.pause(); } catch {} activeAudioEl = null; }
-  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
 }
 
-function playBlobUrl(url, rate, isStale) {
+// Memutar sebuah HTMLAudioElement yang SUDAH ADA (dari cache/bundled via
+// object URL, atau langsung dari Puter.js) sambil menjaga hanya satu audio
+// yang benar-benar boleh berbunyi di satu waktu.
+function playAudioElement(audio, rate, isStale) {
   return new Promise((resolve) => {
-    if (isStale && isStale()) { resolve(); return; } // sesi sudah basi, jangan bunyi
-    const audio = new Audio(url);
+    if (isStale && isStale()) { resolve(); return; }
     activeAudioEl = audio;
     let done = false;
     const finish = () => { if (done) return; done = true; if (activeFinish === finish) activeFinish = null; resolve(); };
@@ -474,119 +401,59 @@ function playBlobUrl(url, rate, isStale) {
     audio.onended = finish;
     audio.onerror = finish;
     audio.play().catch(finish);
-    setTimeout(finish, 12000); // jaga-jaga anti macet: batas waktu maksimum
-  });
-}
-
-function tryGoogleTts(text, lang, rate, isStale) {
-  return new Promise((resolve) => {
-    if (isStale && isStale()) { resolve(false); return; }
-    const tl = lang === 'id' ? 'id' : 'en';
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${tl}&client=tw-ob&q=${encodeURIComponent(text)}`;
-    let audio;
-    try { audio = new Audio(url); } catch { resolve(false); return; }
-    activeAudioEl = audio;
-    let settled = false;
-    const finishOk = () => { if (settled) return; settled = true; if (activeFinish === finishFail) activeFinish = null; resolve(true); };
-    const finishFail = () => { if (settled) return; settled = true; if (activeFinish === finishFail) activeFinish = null; resolve(false); };
-    activeFinish = finishFail;
-    try { audio.playbackRate = tl === 'id' ? 1 : rate; } catch {}
-    audio.onended = finishOk;
-    audio.onerror = finishFail;
-    audio.play().then(() => {
-      setTimeout(() => { if (!settled) finishFail(); }, 12000);
-    }).catch(finishFail);
+    setTimeout(finish, 12000); // jaga-jaga anti macet
   });
 }
 
 /**
- * Mengucapkan sebuah teks (Inggris atau Indonesia).
- *
- * Urutan prioritas: audio TERTANAM di file (paling andal, tidak butuh apa
- * pun dari HP pemakai) -> cache tersimpan di perangkat ini -> offline
- * neural (Piper, kalau perangkat mendukung) -> online (Google, cadangan
- * terakhir, sering dibatasi server kalau dipakai berulang cepat).
+ * Mengucapkan sebuah teks (Inggris/Indonesia). Prioritas: tertanam -> cache
+ * -> online (Puter.js). Hasil online otomatis disimpan ke cache.
  */
 async function speak(text, lang, rate, isStale) {
   if (!text || !text.trim() || (isStale && isStale())) return 'skip';
   const cacheKey = `${lang}_${hashKey(text)}`;
 
-  // 0) Sudah ditanam di dalam file ini sejak diunduh? Ini yang paling andal
-  //    - tidak butuh internet, tidak butuh mesin AI apa pun di HP pemakai.
   if (bundledAudioMap.has(cacheKey)) {
     const url = URL.createObjectURL(bundledAudioMap.get(cacheKey));
-    await playBlobUrl(url, rate, isStale);
+    await playAudioElement(new Audio(url), rate, isStale);
     URL.revokeObjectURL(url);
     return 'bundled';
   }
 
-  // 1) Sudah pernah disintesis sebelumnya (offline)? langsung pakai, instan.
   const cached = await AudioCache.get(cacheKey);
   if (isStale && isStale()) return 'skip';
   if (cached) {
     const url = URL.createObjectURL(cached);
-    await playBlobUrl(url, rate, isStale);
+    await playAudioElement(new Audio(url), rate, isStale);
     URL.revokeObjectURL(url);
     return 'cache';
   }
 
-  // 2) Offline neural (Piper) - stabil, tidak dibatasi, sumber utama begitu siap.
-  const voiceId = lang === 'id' ? VOICE_ID : VOICE_EN;
-  if (piperTTS && piperVoicesReady.has(voiceId)) {
+  if (navigator.onLine && onlineFailStreak < ONLINE_FAIL_LIMIT) {
     try {
-      const blob = await synthesizeWithPiper(text, lang);
+      const audio = await synthesizeWithPuter(text, lang);
       if (isStale && isStale()) return 'skip';
-      AudioCache.set(cacheKey, blob);
-      const url = URL.createObjectURL(blob);
-      await playBlobUrl(url, rate, isStale);
-      URL.revokeObjectURL(url);
-      return 'offline-neural';
+      await playAudioElement(audio, rate, isStale);
+      onlineFailStreak = 0;
+      // Simpan ke cache di latar belakang (tidak menghalangi), best-effort.
+      fetch(audio.src).then((r) => r.blob()).then((blob) => AudioCache.set(cacheKey, blob)).catch(() => {});
+      return 'online';
     } catch (err) {
-      console.warn('Sintesis offline gagal, coba jalur online:', err);
-      lastOfflineError = String(err?.message || err);
-      $('voiceStatusNote').textContent = `⚠️ Suara offline gagal saat diproses: ${lastOfflineError.slice(0, 120)}`;
+      console.warn('Suara online gagal:', err);
+      onlineFailStreak += 1;
+      if (onlineFailStreak === ONLINE_FAIL_LIMIT) {
+        setStatus('⚠️ Suara online sedang bermasalah - dicoba lagi nanti.');
+      }
     }
   }
-
-  // 3) Online (Google) - cadangan, dengan satu kali percobaan ulang karena
-  //    server ini sering menolak sesekali walau koneksi baik-baik saja.
-  //    Sirkuit-pemutus: kalau sudah gagal beruntun beberapa kali dalam sesi
-  //    ini, berhenti mencoba jalur online sama sekali (server sedang
-  //    membatasi) supaya tidak makin banyak percobaan yang berujung suara
-  //    pecah/gagal, dan supaya jelas: saatnya pakai suara offline.
-  if (navigator.onLine && googleFailStreak < GOOGLE_FAIL_LIMIT) {
-    let ok = await tryGoogleTts(text, lang, rate, isStale);
-    if (!ok && !(isStale && isStale())) {
-      await sleep(450);
-      if (isStale && isStale()) return 'skip';
-      ok = await tryGoogleTts(text, lang, rate, isStale);
-    }
-    if (ok) { googleFailStreak = 0; return 'online'; }
-    googleFailStreak += 1;
-    if (googleFailStreak === GOOGLE_FAIL_LIMIT) {
-      setStatus('⚠️ Suara online sedang dibatasi server — beralih diam-diam ke offline/berhenti sementara. Siapkan suara offline untuk stabil.');
-    }
-  }
-
   return 'unavailable';
 }
 
 // ---------------------------------------------------------------------
 // STATE APLIKASI
 // ---------------------------------------------------------------------
-const state = {
-  words: [],
-  sentences: [],
-  repeatCount: 1,
-  rate: 1,
-};
-const playback = {
-  isPlaying: false,
-  isPaused: false,
-  stopRequested: false,
-  mode: null,
-  currentRun: 0, // token generasi: sesi lama otomatis "basi" saat ini berubah
-};
+const state = { words: [], sentences: [], repeatCount: 1, rate: 1 };
+const playback = { isPlaying: false, isPaused: false, stopRequested: false, mode: null, currentRun: 0 };
 let runCounter = 0;
 
 // ---------------------------------------------------------------------
@@ -608,7 +475,6 @@ function renderPreview() {
       <div class="id" data-strans="${i}">···</div>
     </div>`).join('');
 
-  // isi terjemahan pratinjau di latar belakang (tidak menghalangi UI)
   prefetchPreviewTranslations();
 }
 
@@ -655,6 +521,11 @@ function setTranslationDisplay(text, isLoading) {
   else { box.className = 'muted'; box.textContent = 'Terjemahan akan muncul saat kata/kalimat dibacakan...'; }
 }
 function setStatus(text) { $('statusText').textContent = text; }
+function flashNoSound(el) {
+  if (!el) return;
+  el.classList.add('no-sound');
+  setTimeout(() => el.classList.remove('no-sound'), 900);
+}
 
 // ---------------------------------------------------------------------
 // KONTROL PLAY / PAUSE / STOP
@@ -663,12 +534,6 @@ async function waitWhilePaused(isStale) {
   while (playback.isPaused && !playback.stopRequested && !(isStale && isStale())) await sleep(120);
 }
 
-/**
- * Memulai sebuah mode putar. Sesi sebelumnya (jika ada) langsung ditandai
- * "basi" lewat runCounter, dan audionya dipaksa berhenti seketika lewat
- * stopAllAudio() - bukan menunggu timeout - sehingga tidak ada jendela
- * waktu di mana dua sesi sama-sama bisa mengeluarkan suara.
- */
 async function runMode(mode) {
   if (!state.words.length && !state.sentences.length) return;
 
@@ -676,30 +541,17 @@ async function runMode(mode) {
   const myRun = runCounter;
   const isStale = () => playback.currentRun !== myRun || playback.stopRequested;
 
-  stopAllAudio(); // hentikan seketika apa pun yang sedang berbunyi dari sesi lama
+  stopAllAudio();
 
   playback.currentRun = myRun;
   playback.isPlaying = true;
   playback.isPaused = false;
   playback.stopRequested = false;
   playback.mode = mode;
-  googleFailStreak = 0; // sesi baru, beri kesempatan lagi ke jalur online sebelum sirkuit-pemutus aktif
+  onlineFailStreak = 0;
   updateModeButtonsUI();
   $('btnPause').classList.remove('paused');
   $('btnPause').textContent = '⏸️ JEDA';
-
-  // Auto-siapkan suara offline dulu kalau belum siap & belum pernah dicoba -
-  // ini jalur paling stabil, jadi lebih baik disiapkan sebelum drilling
-  // dimulai daripada mengandalkan jalur online yang mudah dibatasi server.
-  const needEn = piperTTS && !piperVoicesReady.has(VOICE_EN);
-  const needId = piperTTS && VOICE_ID && !piperVoicesReady.has(VOICE_ID);
-  if ((needEn || needId) && !offlineVoicesAttempted) {
-    offlineVoicesAttempted = true;
-    setStatus('📥 Menyiapkan suara offline dulu supaya stabil...');
-    await prepareOfflineVoices();
-    if (isStale()) return; // guru sudah pindah mode selagi menyiapkan, batalkan sesi ini
-  }
-
   setStatus(`🔊 Memutar ${modeLabel(mode)}...`);
 
   try {
@@ -708,7 +560,6 @@ async function runMode(mode) {
     else if (mode === 'wordTrans') await playWordMode(true, isStale);
     else if (mode === 'sentenceTrans') await playSentenceMode(true, isStale);
   } finally {
-    // hanya sesi yang MASIH aktif ini yang boleh mengubah UI ke keadaan "selesai"
     if (playback.currentRun === myRun) {
       playback.isPlaying = false;
       playback.mode = null;
@@ -741,9 +592,9 @@ async function playWordMode(withTranslation, isStale) {
       const source = await speak(w.original, 'en', state.rate, isStale);
       if (isStale()) return;
       if (source === 'unavailable') {
-        setStatus(`🔇 Tidak ada suara untuk "${w.original}" - coba lagi / siapkan suara offline`);
+        setStatus(`🔇 Tidak ada suara untuk "${w.original}" - coba lagi`);
         flashNoSound(document.querySelector(`[data-widx="${i}"]`));
-        await sleep(400); // beri jeda ekstra supaya kegagalan terlihat, tidak melesat begitu saja
+        await sleep(400);
       } else {
         setStatus(`🔊 EN: ${w.original} [${sourceLabel(source)}]`);
       }
@@ -751,11 +602,7 @@ async function playWordMode(withTranslation, isStale) {
         const tr = await translateText(w.lower);
         if (isStale()) return;
         setTranslationDisplay(tr, false);
-        if (tr) {
-          await waitWhilePaused(isStale);
-          if (isStale()) return;
-          await speak(tr, 'id', 1, isStale);
-        }
+        if (tr) { await waitWhilePaused(isStale); if (isStale()) return; await speak(tr, 'id', 1, isStale); }
       } else if (withTranslation) {
         setTranslationDisplay('—', false);
       }
@@ -777,7 +624,7 @@ async function playSentenceMode(withTranslation, isStale) {
       const source = await speak(s, 'en', state.rate, isStale);
       if (isStale()) return;
       if (source === 'unavailable') {
-        setStatus(`🔇 Tidak ada suara untuk kalimat ini - coba lagi / siapkan suara offline`);
+        setStatus(`🔇 Tidak ada suara untuk kalimat ini - coba lagi`);
         flashNoSound(document.querySelector(`[data-sidx="${i}"]`));
         await sleep(400);
       } else {
@@ -787,11 +634,7 @@ async function playSentenceMode(withTranslation, isStale) {
         const tr = await translateText(s);
         if (isStale()) return;
         setTranslationDisplay(tr, false);
-        if (tr) {
-          await waitWhilePaused(isStale);
-          if (isStale()) return;
-          await speak(tr, 'id', 1, isStale);
-        }
+        if (tr) { await waitWhilePaused(isStale); if (isStale()) return; await speak(tr, 'id', 1, isStale); }
       }
       if (isStale()) return;
       await sleep(700);
@@ -799,74 +642,22 @@ async function playSentenceMode(withTranslation, isStale) {
   }
 }
 function sourceLabel(s) {
-  return { bundled: 'tertanam', cache: 'tersimpan', online: 'online', 'offline-neural': 'offline', unavailable: 'tak tersedia', skip: '-' }[s] || s;
-}
-function flashNoSound(el) {
-  if (!el) return;
-  el.classList.add('no-sound');
-  setTimeout(() => el.classList.remove('no-sound'), 900);
+  return { bundled: 'tertanam', cache: 'tersimpan', online: 'online', unavailable: 'tak tersedia', skip: '-' }[s] || s;
 }
 
 // ---------------------------------------------------------------------
-// SIAPKAN SUARA OFFLINE (unduh model Piper sekali)
+// KHUSUS GURU: BUAT SEMUA SUARA SEKALIGUS
 // ---------------------------------------------------------------------
-async function prepareOfflineVoices() {
-  if (!piperTTS) {
-    $('voiceStatusNote').textContent = '⚠️ Mesin suara offline gagal dimuat (perlu internet untuk memuat pustaka pertama kali).';
-    return;
-  }
-  const btn = $('btnPrepVoice');
-  btn.disabled = true;
-  $('prepProgressOuter').style.display = 'block';
-  const targets = [VOICE_EN, VOICE_ID].filter(Boolean);
-  let anyFailed = false;
-  for (const voiceId of targets) {
-    if (piperVoicesReady.has(voiceId)) continue;
-    try {
-      $('voiceStatusNote').textContent = `Mengunduh suara ${voiceId}...`;
-      await piperTTS.download(voiceId, (progress) => {
-        const pct = progress?.total ? Math.round((progress.loaded * 100) / progress.total) : 0;
-        $('prepProgressInner').style.width = pct + '%';
-      });
-    } catch (err) {
-      anyFailed = true;
-      console.warn(`Gagal mengunduh suara ${voiceId}:`, err);
-    }
-  }
-  await refreshPiperStoredVoices();
-  if (!anyFailed) {
-    $('voiceStatusNote').textContent = '✅ Suara offline siap. Aplikasi bisa bicara tanpa internet mulai sekarang.';
-  } else {
-    $('voiceStatusNote').textContent = '⚠️ Sebagian suara offline gagal diunduh. Coba lagi saat koneksi internet lebih stabil.';
-  }
-  btn.disabled = false;
-  $('prepProgressOuter').style.display = 'none';
-}
-
-// ---------------------------------------------------------------------
-// KHUSUS GURU: BUAT SEMUA SUARA SEKALIGUS (di laptop, sebelum dibagikan)
-// ---------------------------------------------------------------------
-// Mengambil bytes audio Google TTS secara langsung (bukan cuma diputar
-// lewat <audio src>) supaya bisa disimpan/ditanam. Ini hanya dipakai saat
-// GURU membuat konten di laptop dengan internet bagus - kalau server tidak
-// mengizinkan fetch lintas domain (CORS), akan gagal & item itu dilewati,
-// tidak menghentikan proses keseluruhan.
-async function fetchGoogleTtsBlob(text, lang) {
-  const tl = lang === 'id' ? 'id' : 'en';
-  const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${tl}&client=tw-ob&q=${encodeURIComponent(text)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return await res.blob();
-}
 async function generateAudioForBundle(text, lang) {
-  const voiceId = lang === 'id' ? VOICE_ID : VOICE_EN;
-  if (piperTTS && piperVoicesReady.has(voiceId)) {
-    try { return await synthesizeWithPiper(text, lang); }
-    catch (err) { console.warn('Piper gagal saat membuat suara untuk ditanam, coba jalur online:', err); }
+  try {
+    const audio = await synthesizeWithPuter(text, lang);
+    const res = await fetch(audio.src);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.blob();
+  } catch (err) {
+    console.warn('Gagal membuat suara untuk ditanam:', err);
+    return null;
   }
-  try { return await fetchGoogleTtsBlob(text, lang); }
-  catch (err) { console.warn('Google TTS gagal saat membuat suara untuk ditanam:', err); }
-  return null;
 }
 
 async function generateAllAudio() {
@@ -879,7 +670,6 @@ async function generateAllAudio() {
   $('genAllProgressOuter').style.display = 'block';
   $('genAllNote').textContent = 'Menyiapkan daftar kata & kalimat...';
 
-  // Kumpulkan semua teks unik (Inggris + terjemahan Indonesia) yang perlu suara.
   const items = new Map();
   const addItem = (text, lang) => {
     if (!text || !text.trim()) return;
@@ -911,11 +701,12 @@ async function generateAllAudio() {
     done++;
     $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
     $('genAllNote').textContent = `Memproses suara ${done}/${list.length}...`;
+    await sleep(30);
   }
 
   $('genAllNote').textContent = failed === 0
     ? `✅ Selesai! ${done} suara siap. Sekarang tekan "⬇️ DOWNLOAD APLIKASI" di bagian bawah supaya suaranya ikut tertanam di filenya.`
-    : `⚠️ Selesai, ${done - failed} dari ${done} berhasil dibuat. ${failed} gagal (biasanya karena Piper belum disiapkan & jalur online sedang dibatasi) — tekan "Buat Semua Suara" sekali lagi untuk mencoba yang gagal saja.`;
+    : `⚠️ Selesai, ${done - failed} dari ${done} berhasil dibuat. ${failed} gagal — tekan "Buat Semua Suara" sekali lagi untuk mencoba yang gagal saja.`;
   btn.disabled = false;
   $('genAllProgressOuter').style.display = 'none';
 }
@@ -966,24 +757,19 @@ $('btnStop').addEventListener('click', () => {
   stopAllAudio();
   setStatus('⏹️ Menghentikan...');
 });
-$('btnPrepVoice').addEventListener('click', prepareOfflineVoices);
-$('btnGenerateAll').addEventListener('click', generateAllAudio);
-$('btnTestOffline').addEventListener('click', async () => {
-  const note = $('offlineTestNote');
-  if (!piperTTS) { note.textContent = '❌ Pustaka Piper tidak berhasil dimuat sama sekali (piperTTS = null).'; return; }
-  if (!piperVoicesReady.has(VOICE_EN)) { note.textContent = '❌ Suara Inggris offline belum terunduh/tersimpan. Tekan "Siapkan Suara Offline" dulu.'; return; }
-  note.textContent = '⏳ Mencoba sintesis kalimat uji "This is a test." secara offline...';
+$('btnTestVoice').addEventListener('click', async () => {
+  const note = $('voiceTestNote');
+  note.textContent = '⏳ Mencoba membuat & memutar suara uji...';
   try {
-    const blob = await synthesizeWithPiper('This is a test.', 'en');
-    const url = URL.createObjectURL(blob);
-    await playBlobUrl(url, 1, null);
-    URL.revokeObjectURL(url);
-    note.textContent = '✅ Berhasil! Sintesis & pemutaran offline bekerja normal di perangkat ini.';
+    const audio = await synthesizeWithPuter('This is a test.', 'en');
+    await playAudioElement(audio, 1, null);
+    note.textContent = '✅ Berhasil! Mesin suara bekerja normal di perangkat ini.';
   } catch (err) {
-    note.textContent = `❌ GAGAL saat sintesis offline. Pesan error: "${String(err?.message || err)}". Mohon salin pesan ini untuk didiagnosis lebih lanjut.`;
-    console.error('Tes offline gagal:', err);
+    note.textContent = `❌ GAGAL. Pesan error: "${String(err?.message || err)}".`;
+    console.error('Tes suara gagal:', err);
   }
 });
+$('btnGenerateAll').addEventListener('click', generateAllAudio);
 $('btnDownloadApp').addEventListener('click', async () => {
   const btn = $('btnDownloadApp');
   const originalLabel = btn.textContent;
@@ -991,8 +777,6 @@ $('btnDownloadApp').addEventListener('click', async () => {
     btn.disabled = true;
     btn.textContent = '⏳ Menanam audio ke file...';
 
-    // Ambil semua audio yang sudah dibuat (lewat "Buat Semua Suara") dan
-    // ubah jadi base64 supaya bisa ditanam langsung ke dalam file HTML.
     const entries = await AudioCache.getAllEntries();
     const bundled = {};
     for (const { key, blob } of entries) {
@@ -1000,9 +784,6 @@ $('btnDownloadApp').addEventListener('click', async () => {
       catch (err) { console.warn('Lewati satu audio saat menanam:', err); }
     }
 
-    // Susun ulang HTML: sisipkan data audio tertanam tepat sebelum </body>,
-    // menimpa tanaman audio versi sebelumnya kalau ada (supaya tidak dobel
-    // saat file hasil unduhan diunduh ulang lagi setelah ditambah kosakata).
     let html = document.documentElement.outerHTML;
     html = html.replace(/<script id="bundled-audio-data"[^]*?<\/script>\s*/, '');
     const dataScript = `<script id="bundled-audio-data" type="application/json">${JSON.stringify(bundled)}<\/script>\n`;
@@ -1016,7 +797,7 @@ $('btnDownloadApp').addEventListener('click', async () => {
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1200);
 
     const count = Object.keys(bundled).length;
-    setStatus(count > 0 ? `✅ File diunduh dengan ${count} suara tertanam di dalamnya.` : '✅ File diunduh (belum ada suara yang ditanam — tekan "Buat Semua Suara" dulu supaya HP orang tua tidak perlu internet).');
+    setStatus(count > 0 ? `✅ File diunduh dengan ${count} suara tertanam.` : '✅ File diunduh (belum ada suara ditanam — tekan "Buat Semua Suara" dulu).');
   } catch (err) {
     console.error(err);
     alert('Gagal mengunduh aplikasi: ' + (err?.message || err));
@@ -1029,21 +810,15 @@ $('btnDownloadApp').addEventListener('click', async () => {
 // ---------------------------------------------------------------------
 // INISIALISASI
 // ---------------------------------------------------------------------
-(async function init() {
+(function init() {
   renderPreview();
-  loadBundledAudio(); // kalau file ini hasil unduhan yang sudah berisi suara, muat sekarang
-  await resolveAvailableVoices();     // pastikan id suara yang dipakai benar-benar ada di manifest Piper
-  await refreshPiperStoredVoices();
-  const enReady = piperVoicesReady.has(VOICE_EN);
-  const idReady = !VOICE_ID || piperVoicesReady.has(VOICE_ID); // kalau tak ada suara ID di manifest, jangan hitung sebagai penghalang
+  loadBundledAudio();
   if (bundledAudioMap.size > 0) {
     $('voiceStatusNote').textContent = `✅ ${bundledAudioMap.size} suara sudah tertanam di file ini — bisa langsung dipakai tanpa internet.`;
-  } else if (enReady && idReady) {
-    $('voiceStatusNote').textContent = '✅ Suara offline sudah siap di perangkat ini.';
-  } else if (piperTTS) {
-    $('voiceStatusNote').textContent = 'Suara offline belum disiapkan — sementara pakai suara Google (online), yang bisa gagal sesekali. Tekan "Siapkan Suara Offline" sekali saat ada internet supaya suara jadi stabil selamanya.';
+  } else if (window.puter?.ai?.txt2speech) {
+    $('voiceStatusNote').textContent = '✅ Mesin suara siap (perlu internet saat pertama kali mengucapkan tiap kata, lalu tersimpan otomatis).';
   } else {
-    $('voiceStatusNote').textContent = '⚠️ Mesin suara offline tidak tersedia di browser/jaringan ini — aplikasi hanya bisa pakai suara online, yang bisa naik-turun kestabilannya.';
+    $('voiceStatusNote').textContent = '⚠️ Mesin suara belum termuat - periksa koneksi internet lalu muat ulang halaman.';
   }
   window.addEventListener('online', () => setStatus('🌐 Internet tersambung'));
   window.addEventListener('offline', () => setStatus('📴 Mode offline'));
