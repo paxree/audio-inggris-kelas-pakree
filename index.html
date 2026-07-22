@@ -365,7 +365,10 @@ function parseSentences(text) {
 // MESIN SUARA: PUTER.JS
 // ---------------------------------------------------------------------
 const PUTER_EN_OPTS = { provider: 'aws-polly', voice: 'Joanna', engine: 'neural', language: 'en-US' };
-const PUTER_ID_OPTS = { provider: 'aws-polly', voice: 'Dewi', language: 'id-ID' };
+// Amazon Polly TIDAK mendukung Bahasa Indonesia (dicek di daftar bahasa
+// resminya - id-ID tidak ada). Pakai Gemini untuk suara Indonesia, yang
+// mendeteksi bahasa langsung dari teksnya sendiri (tidak perlu kode bahasa).
+const PUTER_ID_OPTS = { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts', voice: 'Kore' };
 
 async function synthesizeWithPuter(text, lang) {
   if (!window.puter?.ai?.txt2speech) throw new Error('Puter.js belum termuat');
@@ -389,19 +392,22 @@ function stopAllAudio() {
 
 // Memutar sebuah HTMLAudioElement yang SUDAH ADA (dari cache/bundled via
 // object URL, atau langsung dari Puter.js) sambil menjaga hanya satu audio
-// yang benar-benar boleh berbunyi di satu waktu.
+// yang benar-benar boleh berbunyi di satu waktu. Mengembalikan true kalau
+// benar-benar selesai diputar, false kalau gagal (error) - PENTING supaya
+// kegagalan tidak dianggap diam-diam sebagai "berhasil".
 function playAudioElement(audio, rate, isStale) {
   return new Promise((resolve) => {
-    if (isStale && isStale()) { resolve(); return; }
+    if (isStale && isStale()) { resolve(false); return; }
     activeAudioEl = audio;
     let done = false;
-    const finish = () => { if (done) return; done = true; if (activeFinish === finish) activeFinish = null; resolve(); };
-    activeFinish = finish;
+    const finish = (ok) => { if (done) return; done = true; if (activeFinish === wrappedFinish) activeFinish = null; resolve(ok); };
+    const wrappedFinish = () => finish(true);
+    activeFinish = wrappedFinish;
     try { audio.playbackRate = rate; } catch {}
-    audio.onended = finish;
-    audio.onerror = finish;
-    audio.play().catch(finish);
-    setTimeout(finish, 12000); // jaga-jaga anti macet
+    audio.onended = () => finish(true);
+    audio.onerror = () => finish(false);
+    audio.play().catch(() => finish(false));
+    setTimeout(() => finish(false), 12000); // jaga-jaga anti macet
   });
 }
 
@@ -433,7 +439,8 @@ async function speak(text, lang, rate, isStale) {
     try {
       const audio = await synthesizeWithPuter(text, lang);
       if (isStale && isStale()) return 'skip';
-      await playAudioElement(audio, rate, isStale);
+      const ok = await playAudioElement(audio, rate, isStale);
+      if (!ok) throw new Error('Audio gagal diputar (onerror/timeout)');
       onlineFailStreak = 0;
       // Simpan ke cache di latar belakang (tidak menghalangi), best-effort.
       fetch(audio.src).then((r) => r.blob()).then((blob) => AudioCache.set(cacheKey, blob)).catch(() => {});
@@ -602,7 +609,12 @@ async function playWordMode(withTranslation, isStale) {
         const tr = await translateText(w.lower);
         if (isStale()) return;
         setTranslationDisplay(tr, false);
-        if (tr) { await waitWhilePaused(isStale); if (isStale()) return; await speak(tr, 'id', 1, isStale); }
+        if (tr) {
+          await waitWhilePaused(isStale); if (isStale()) return;
+          const trSource = await speak(tr, 'id', 1, isStale);
+          if (isStale()) return;
+          if (trSource === 'unavailable') setStatus(`🔇 Suara Indonesia untuk "${tr}" gagal`);
+        }
       } else if (withTranslation) {
         setTranslationDisplay('—', false);
       }
@@ -634,7 +646,12 @@ async function playSentenceMode(withTranslation, isStale) {
         const tr = await translateText(s);
         if (isStale()) return;
         setTranslationDisplay(tr, false);
-        if (tr) { await waitWhilePaused(isStale); if (isStale()) return; await speak(tr, 'id', 1, isStale); }
+        if (tr) {
+          await waitWhilePaused(isStale); if (isStale()) return;
+          const trSource = await speak(tr, 'id', 1, isStale);
+          if (isStale()) return;
+          if (trSource === 'unavailable') setStatus('🔇 Suara Indonesia untuk kalimat ini gagal');
+        }
       }
       if (isStale()) return;
       await sleep(700);
@@ -648,10 +665,17 @@ function sourceLabel(s) {
 // ---------------------------------------------------------------------
 // KHUSUS GURU: BUAT SEMUA SUARA SEKALIGUS
 // ---------------------------------------------------------------------
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout (${label})`)), ms)),
+  ]);
+}
+
 async function generateAudioForBundle(text, lang) {
   try {
-    const audio = await synthesizeWithPuter(text, lang);
-    const res = await fetch(audio.src);
+    const audio = await withTimeout(synthesizeWithPuter(text, lang), 15000, 'sintesis');
+    const res = await withTimeout(fetch(audio.src), 15000, 'ambil-bytes');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.blob();
   } catch (err) {
