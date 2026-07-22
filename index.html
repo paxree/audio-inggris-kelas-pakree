@@ -112,9 +112,13 @@
       <div style="font-size:11px;color:#636e72;margin-bottom:6px">
         Suara diambil online (neural, jelas) tiap kali diputar, lalu otomatis
         disimpan di HP ini supaya pemutaran berikutnya instan &amp; tetap
-        bekerja walau internet mati.
+        bekerja walau internet mati. Jatah gratis tanpa login terbatas -
+        <b>login sekali</b> di bawah ini supaya jatahnya jauh lebih besar dan
+        tidak macet di tengah proses.
       </div>
       <div class="voice-note" id="voiceStatusNote">Memeriksa mesin suara...</div>
+      <button class="btn-download-voice" id="btnPuterLogin" style="background:#0984E3;margin-top:8px;width:100%">🔑 Login/Daftar Puter (Sekali, Gratis)</button>
+      <div class="voice-note" id="puterLoginNote"></div>
       <button class="btn-download-voice" id="btnTestVoice" style="background:#00B894;margin-top:8px;width:100%">🧪 Tes Suara</button>
       <div class="voice-note" id="voiceTestNote"></div>
     </div>
@@ -721,15 +725,22 @@ async function generateAllAudio() {
   const list = [...items.values()];
   let done = 0, failed = 0;
   for (const { text, lang } of list) {
-    const key = `${lang}_${hashKey(text)}`;
-    const existing = await AudioCache.get(key);
-    if (!existing) {
-      const blob = await generateAudioForBundle(text, lang);
-      if (blob) await AudioCache.set(key, blob); else failed++;
+    $('genAllNote').textContent = `Memproses ${done + 1}/${list.length}: "${text.slice(0, 40)}" (${lang})...`;
+    try {
+      await withTimeout((async () => {
+        const key = `${lang}_${hashKey(text)}`;
+        const existing = await AudioCache.get(key);
+        if (!existing) {
+          const blob = await generateAudioForBundle(text, lang);
+          if (blob) await AudioCache.set(key, blob); else failed++;
+        }
+      })(), 20000, 'item-keseluruhan');
+    } catch (err) {
+      failed++;
+      console.warn('Item gagal/timeout (pengaman luar):', text, err);
     }
     done++;
     $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
-    $('genAllNote').textContent = `Memproses suara ${done}/${list.length}...`;
     await sleep(30);
   }
 
@@ -786,6 +797,20 @@ $('btnStop').addEventListener('click', () => {
   stopAllAudio();
   setStatus('⏹️ Menghentikan...');
 });
+$('btnPuterLogin').addEventListener('click', async () => {
+  const note = $('puterLoginNote');
+  try {
+    if (window.puter?.auth?.isSignedIn?.()) {
+      note.textContent = '✅ Sudah login sebelumnya.';
+      return;
+    }
+    note.textContent = '⏳ Membuka jendela login (izinkan pop-up kalau diminta browser)...';
+    await window.puter.auth.signIn();
+    note.textContent = '✅ Berhasil login! Jatah suara sekarang jauh lebih besar.';
+  } catch (err) {
+    note.textContent = `❌ Login dibatalkan/gagal: "${String(err?.message || err)}". Coba lagi, dan pastikan pop-up tidak diblokir (cek ikon di address bar).`;
+  }
+});
 $('btnTestVoice').addEventListener('click', async () => {
   const note = $('voiceTestNote');
   note.textContent = '⏳ Mencoba membuat & memutar suara uji...';
@@ -798,7 +823,19 @@ $('btnTestVoice').addEventListener('click', async () => {
     console.error('Tes suara gagal:', err);
   }
 });
-$('btnGenerateAll').addEventListener('click', generateAllAudio);
+$('btnGenerateAll').addEventListener('click', async () => {
+  // Pastikan login DULU, dipicu langsung oleh klik tombol ini (bukan di
+  // tengah proses otomatis) - supaya pop-up login tidak diblokir browser.
+  if (window.puter?.auth && !window.puter.auth.isSignedIn()) {
+    $('genAllNote').textContent = '🔑 Membuka login dulu (izinkan pop-up kalau diminta)...';
+    try { await window.puter.auth.signIn(); }
+    catch (err) {
+      $('genAllNote').textContent = `❌ Login dibutuhkan untuk melanjutkan tapi dibatalkan/gagal: "${String(err?.message || err)}". Tekan tombol ini lagi untuk mencoba.`;
+      return;
+    }
+  }
+  await generateAllAudio();
+});
 $('btnDownloadApp').addEventListener('click', async () => {
   const btn = $('btnDownloadApp');
   const originalLabel = btn.textContent;
@@ -848,6 +885,9 @@ $('btnDownloadApp').addEventListener('click', async () => {
     $('voiceStatusNote').textContent = '✅ Mesin suara siap (perlu internet saat pertama kali mengucapkan tiap kata, lalu tersimpan otomatis).';
   } else {
     $('voiceStatusNote').textContent = '⚠️ Mesin suara belum termuat - periksa koneksi internet lalu muat ulang halaman.';
+  }
+  if (window.puter?.auth?.isSignedIn?.()) {
+    $('puterLoginNote').textContent = '✅ Sudah login.';
   }
   window.addEventListener('online', () => setStatus('🌐 Internet tersambung'));
   window.addEventListener('offline', () => setStatus('📴 Mode offline'));
