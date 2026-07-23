@@ -90,6 +90,7 @@
   <header>
     <h1 class="font-baloo font-extrabold">AUDIO INGGRIS<br>Kelas Pakree</h1>
     <div class="badge">MI SAFINATUL HUDA SOWAN KIDUL</div>
+    <div class="badge" id="readyBadge" style="display:none;margin-top:6px;background:#0984E3">🔊 SUARA SUDAH SIAP - TINGGAL PUTAR</div>
   </header>
 
   <!-- INPUT TEKS -->
@@ -97,6 +98,17 @@
     <label class="field-label">✏️ TEKS BAHASA INGGRIS</label>
     <textarea id="inputText" placeholder="Ketik atau tempel teks Bahasa Inggris di sini..."></textarea>
     <button class="btn-clear" id="btnClear">🗑️ HAPUS TEKS</button>
+
+    <!-- GALERI PELAJARAN -->
+    <div class="engine-box" style="border-color:#FDCB6E;background:#fffdf5">
+      <div class="row-between">
+        <span style="font-size:11px;font-weight:800;color:#E17055">📚 GALERI PELAJARAN TERSIMPAN</span>
+        <span class="pill" id="lessonCount">0</span>
+      </div>
+      <div style="font-size:10px;color:#636e72;margin:4px 0 6px">Tap untuk memuat pelajaran lama ke kotak teks di atas.</div>
+      <div class="chips" id="lessonGallery" style="max-height:120px"></div>
+      <button id="btnClearGallery" style="display:none;margin-top:8px;width:100%;height:34px;border-radius:999px;background:#FF7675;color:#fff;font-weight:800;font-size:11px">🗑️ Hapus Semua Galeri</button>
+    </div>
 
     <div style="margin-top:14px">
       <div class="row-between">
@@ -107,7 +119,7 @@
     </div>
 
     <!-- MESIN SUARA -->
-    <div class="engine-box">
+    <div class="engine-box" id="engineBoxMesinSuara">
       <div style="font-size:11px;font-weight:800;color:#6C5CE7;margin-bottom:6px">🎙️ MESIN SUARA</div>
       <div style="font-size:11px;color:#636e72;margin-bottom:6px">
         Suara diambil online (neural, jelas) tiap kali diputar, lalu otomatis
@@ -124,7 +136,7 @@
     </div>
 
     <!-- UNTUK GURU: BUAT SEMUA SUARA SEKALIGUS DI LAPTOP -->
-    <div class="engine-box" style="border-color:#00B894;background:#f0fff9">
+    <div class="engine-box" id="engineBoxKhususGuru" style="border-color:#00B894;background:#f0fff9">
       <div style="font-size:11px;font-weight:800;color:#00B894;margin-bottom:6px">👩‍🏫 KHUSUS GURU (di laptop, sebelum dibagikan ke orang tua)</div>
       <div style="font-size:11px;color:#636e72;margin-bottom:8px">
         Tekan tombol ini SEKALI setelah teks lengkap dimasukkan. Semua suara kata &amp;
@@ -247,8 +259,12 @@ const AudioCache = (() => {
   function getDb() {
     if (!dbPromise) {
       dbPromise = new Promise((resolve, reject) => {
-        const req = indexedDB.open('audio-inggris-cache', 1);
-        req.onupgradeneeded = () => req.result.createObjectStore('clips');
+        const req = indexedDB.open('audio-inggris-cache', 2);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('clips')) db.createObjectStore('clips');
+          if (!db.objectStoreNames.contains('lessons')) db.createObjectStore('lessons', { keyPath: 'key' });
+        };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       });
@@ -290,8 +306,70 @@ const AudioCache = (() => {
         });
       } catch { return []; }
     },
+    async getDbHandle() { return await getDb(); },
   };
 })();
+
+// ---------------------------------------------------------------------
+// GALERI PELAJARAN - menyimpan teks yang pernah dimasukkan
+// ---------------------------------------------------------------------
+// Master: menjaga agar teks yang sudah dibuatkan suaranya tidak hilang
+// jejaknya. Anak: memanggil kembali materi yang pernah dipelajari tanpa
+// perlu cari-cari lagi di WhatsApp - tinggal tap.
+const LessonStore = {
+  async upsert(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const words = trimmed.match(/[A-Za-z']+/g) || [];
+    if (words.length < 3) return; // terlalu pendek, tidak perlu disimpan sebagai "pelajaran"
+    const key = 'lesson_' + hashKey(trimmed);
+    const title = words.slice(0, 5).join(' ') + (words.length > 5 ? '...' : '');
+    try {
+      const db = await AudioCache.getDbHandle();
+      await new Promise((resolve) => {
+        const tx = db.transaction('lessons', 'readwrite').objectStore('lessons')
+          .put({ key, title, text: trimmed, wordCount: words.length, savedAt: Date.now() });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    } catch { /* abaikan, tidak fatal */ }
+  },
+  async list() {
+    try {
+      const db = await AudioCache.getDbHandle();
+      return await new Promise((resolve) => {
+        const req = db.transaction('lessons', 'readonly').objectStore('lessons').getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      });
+    } catch { return []; }
+  },
+  async remove(key) {
+    try {
+      const db = await AudioCache.getDbHandle();
+      await new Promise((resolve) => {
+        const tx = db.transaction('lessons', 'readwrite').objectStore('lessons').delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    } catch { /* abaikan */ }
+  },
+  async clearAll() {
+    try {
+      const db = await AudioCache.getDbHandle();
+      await new Promise((resolve) => {
+        const tx = db.transaction('lessons', 'readwrite').objectStore('lessons').clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    } catch { /* abaikan */ }
+  },
+};
+// Daftar pelajaran yang sudah tertanam di file ini sejak diunduh (dimuat
+// dari data tertanam, digabung dengan yang tersimpan lokal saat ditampilkan).
+// Catatan: galeri pelajaran SENGAJA tidak diwariskan dari file master ke
+// file anak - galeri anak selalu mulai kosong dan hanya terisi dari input
+// baru yang diketik/tempel di kotak teks aplikasi anak itu sendiri.
 
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
@@ -383,7 +461,13 @@ const PUTER_ID_OPTS = { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts
 async function synthesizeWithPuter(text, lang) {
   if (!window.puter?.ai?.txt2speech) throw new Error('Puter.js belum termuat');
   const opts = lang === 'id' ? PUTER_ID_OPTS : PUTER_EN_OPTS;
-  return await window.puter.ai.txt2speech(text, opts); // -> HTMLAudioElement
+  // Kata tunggal Bahasa Indonesia tanpa tanda baca cenderung membuat gaya
+  // bicara model AI tidak konsisten (kurang konteks "kalimat selesai").
+  // Menambah titik di akhir memberi sedikit konteks tambahan, membantu
+  // menstabilkan nada - ini mitigasi, bukan solusi sempurna.
+  let synthText = text;
+  if (lang === 'id' && !/[.!?]$/.test(text.trim())) synthText = text.trim() + '.';
+  return await window.puter.ai.txt2speech(synthText, opts); // -> HTMLAudioElement
 }
 
 let onlineFailStreak = 0;
@@ -476,6 +560,44 @@ let runCounter = 0;
 // ---------------------------------------------------------------------
 // UI: RENDER PRATINJAU
 // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// GALERI PELAJARAN - render & interaksi
+// ---------------------------------------------------------------------
+async function renderLessonGallery() {
+  const all = (await LessonStore.list()).sort((a, b) => b.savedAt - a.savedAt);
+  $('lessonCount').textContent = all.length;
+  $('btnClearGallery').style.display = all.length > 0 ? 'inline-block' : 'none';
+  $('lessonGallery').innerHTML = all.map((l) => `
+    <span class="chip" data-lesson-key="${l.key}" style="cursor:pointer;position:relative;padding-right:20px">
+      <span>${escapeHtml(l.title)}</span>
+      <small>${l.wordCount} kata</small>
+      <span data-lesson-delete="${l.key}" style="position:absolute;top:2px;right:4px;color:#FF7675;font-weight:800;padding:0 4px">✕</span>
+    </span>`).join('') || '<span style="font-size:11px;color:#b2bec3">Belum ada pelajaran tersimpan.</span>';
+
+  $('lessonGallery').querySelectorAll('[data-lesson-key]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-lesson-delete]')) return; // ditangani terpisah di bawah
+      const key = el.dataset.lessonKey;
+      const lesson = all.find((l) => l.key === key);
+      if (lesson) {
+        // Mengisi .value lewat kode TIDAK memicu event 'input' - jadi tap di
+        // sini otomatis tidak akan tersimpan ulang sebagai pelajaran baru.
+        $('inputText').value = lesson.text;
+        state.words = parseWords(lesson.text);
+        state.sentences = parseSentences(lesson.text);
+        renderPreview();
+      }
+    });
+  });
+  $('lessonGallery').querySelectorAll('[data-lesson-delete]').forEach((el) => {
+    el.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await LessonStore.remove(el.dataset.lessonDelete);
+      renderLessonGallery();
+    });
+  });
+}
+
 function renderPreview() {
   $('wordCount').textContent = state.words.length;
   $('sentenceCount').textContent = state.sentences.length;
@@ -723,12 +845,21 @@ async function generateAllAudio() {
   }
 
   const list = [...items.values()];
-  let done = 0, failed = 0;
+  let done = 0, failed = 0, skippedBundled = 0;
   for (const { text, lang } of list) {
+    const key = `${lang}_${hashKey(text)}`;
+    if (bundledAudioMap.has(key)) {
+      // Sudah tertanam permanen di file ini dari sesi sebelumnya - JANGAN
+      // dibuat ulang. Ini yang menjaga "kekayaan suara" tidak pernah hilang
+      // atau dibuang percuma walau aplikasi terus diperbarui/ditambah.
+      skippedBundled++;
+      done++;
+      $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
+      continue;
+    }
     $('genAllNote').textContent = `Memproses ${done + 1}/${list.length}: "${text.slice(0, 40)}" (${lang})...`;
     try {
       await withTimeout((async () => {
-        const key = `${lang}_${hashKey(text)}`;
         const existing = await AudioCache.get(key);
         if (!existing) {
           const blob = await generateAudioForBundle(text, lang);
@@ -744,9 +875,10 @@ async function generateAllAudio() {
     await sleep(30);
   }
 
+  const skipNote = skippedBundled > 0 ? ` (${skippedBundled} sudah tertanam dari sebelumnya, dilewati - tidak dibuat ulang)` : '';
   $('genAllNote').textContent = failed === 0
-    ? `✅ Selesai! ${done} suara siap. Sekarang tekan "⬇️ DOWNLOAD APLIKASI" di bagian bawah supaya suaranya ikut tertanam di filenya.`
-    : `⚠️ Selesai, ${done - failed} dari ${done} berhasil dibuat. ${failed} gagal — tekan "Buat Semua Suara" sekali lagi untuk mencoba yang gagal saja.`;
+    ? `✅ Selesai! ${done} suara siap${skipNote}. Sekarang tekan "⬇️ DOWNLOAD APLIKASI" di bagian bawah supaya suaranya ikut tertanam di filenya.`
+    : `⚠️ Selesai, ${done - failed} dari ${done} berhasil dibuat${skipNote}. ${failed} gagal — tekan "Buat Semua Suara" sekali lagi untuk mencoba yang gagal saja.`;
   btn.disabled = false;
   $('genAllProgressOuter').style.display = 'none';
 }
@@ -757,11 +889,18 @@ async function generateAllAudio() {
 let reparseTimer = null;
 $('inputText').addEventListener('input', (e) => {
   clearTimeout(reparseTimer);
-  reparseTimer = setTimeout(() => {
+  reparseTimer = setTimeout(async () => {
     state.words = parseWords(e.target.value);
     state.sentences = parseSentences(e.target.value);
     renderPreview();
+    await LessonStore.upsert(e.target.value);
+    renderLessonGallery();
   }, 400);
+});
+$('btnClearGallery').addEventListener('click', async () => {
+  if (!confirm('Hapus SEMUA pelajaran tersimpan di galeri ini? Tindakan ini tidak bisa dibatalkan.')) return;
+  await LessonStore.clearAll();
+  renderLessonGallery();
 });
 $('btnClear').addEventListener('click', () => {
   $('inputText').value = '';
@@ -843,12 +982,35 @@ $('btnDownloadApp').addEventListener('click', async () => {
     btn.disabled = true;
     btn.textContent = '⏳ Menanam audio ke file...';
 
-    const entries = await AudioCache.getAllEntries();
     const bundled = {};
+    // PENTING: gabungkan audio yang SUDAH tertanam dari file sebelumnya
+    // (bundledAudioMap, dimuat saat file ini dibuka) DENGAN audio baru yang
+    // dibuat sesi ini (AudioCache/IndexedDB). Kalau ini terlewat, suara lama
+    // yang sudah susah payah dibuat akan HILANG setiap kali file diunduh
+    // ulang - persis kekhawatiran yang perlu dihindari.
+    for (const [key, blob] of bundledAudioMap.entries()) {
+      try { bundled[key] = { b64: await blobToBase64(blob), mime: blob.type || 'audio/mpeg' }; }
+      catch (err) { console.warn('Lewati satu audio tertanam lama:', err); }
+    }
+    const entries = await AudioCache.getAllEntries();
     for (const { key, blob } of entries) {
       try { bundled[key] = { b64: await blobToBase64(blob), mime: blob.type || 'audio/mpeg' }; }
-      catch (err) { console.warn('Lewati satu audio saat menanam:', err); }
+      catch (err) { console.warn('Lewati satu audio baru saat menanam:', err); }
     }
+
+    // PENTING: kembalikan SEMUA kondisi UI sementara ke keadaan normal
+    // SEBELUM mengambil snapshot HTML - kalau tidak, kondisi "sedang
+    // diproses" (tombol nonaktif, progress bar, teks status) akan ikut
+    // terekam PERMANEN di file hasil unduhan, membuatnya tampak rusak.
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+    $('btnGenerateAll').disabled = false;
+    $('btnPuterLogin').disabled = false;
+    $('genAllProgressOuter').style.display = 'none';
+    $('genAllProgressInner').style.width = '0%';
+    setStatus('✅ Siap memutar');
+    document.querySelectorAll('.chip.active, .sentence.active').forEach((el) => el.classList.remove('active'));
+    document.querySelectorAll('.mode-btn.ring').forEach((el) => el.classList.remove('ring'));
 
     let html = document.documentElement.outerHTML;
     html = html.replace(/<script id="bundled-audio-data"[^]*?<\/script>\s*/, '');
@@ -878,9 +1040,16 @@ $('btnDownloadApp').addEventListener('click', async () => {
 // ---------------------------------------------------------------------
 (function init() {
   renderPreview();
+  renderLessonGallery();
   loadBundledAudio();
   if (bundledAudioMap.size > 0) {
-    $('voiceStatusNote').textContent = `✅ ${bundledAudioMap.size} suara sudah tertanam di file ini — bisa langsung dipakai tanpa internet.`;
+    // File ini hasil "Buat Semua Suara" + Download - sudah siap untuk
+    // siswa/orang tua. Sembunyikan kontrol teknis khusus guru supaya tidak
+    // membingungkan (login, tes suara, buat semua suara tidak relevan lagi
+    // di sini karena semua suara sudah tertanam).
+    $('engineBoxMesinSuara').style.display = 'none';
+    $('engineBoxKhususGuru').style.display = 'none';
+    $('readyBadge').style.display = 'inline-block';
   } else if (window.puter?.ai?.txt2speech) {
     $('voiceStatusNote').textContent = '✅ Mesin suara siap (perlu internet saat pertama kali mengucapkan tiap kata, lalu tersimpan otomatis).';
   } else {
