@@ -1,4 +1,6 @@
-<html lang="id"><head>
+<!DOCTYPE html>
+<html lang="id">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>AUDIO INGGRIS - Kelas Pakree</title>
@@ -109,8 +111,8 @@
         <span class="pill" id="lessonCount">0</span>
       </div>
       <div style="font-size:10px;color:#636e72;margin:4px 0 6px">Tap untuk memuat pelajaran lama ke kotak teks di atas.</div>
-      <div class="chips" id="lessonGallery" style="max-height:120px"><span style="font-size:11px;color:#b2bec3">Belum ada pelajaran tersimpan.</span></div>
-      <button id="btnSaveLessonNow" style="margin-top:8px;width:100%;height:34px;border-radius:999px;background:#00B894;color:#fff;font-weight:800;font-size:11px">⏳ Menyimpan...</button>
+      <div class="chips" id="lessonGallery" style="max-height:120px"></div>
+      <button id="btnSaveLessonNow" style="margin-top:8px;width:100%;height:34px;border-radius:999px;background:#00B894;color:#fff;font-weight:800;font-size:11px">💾 Simpan Teks Ini ke Galeri Sekarang</button>
       <button id="btnClearGallery" style="display:none;margin-top:8px;width:100%;height:34px;border-radius:999px;background:#FF7675;color:#fff;font-weight:800;font-size:11px">🗑️ Hapus Semua Galeri</button>
     </div>
 
@@ -132,11 +134,11 @@
         <b>login sekali</b> di bawah ini supaya jatahnya jauh lebih besar dan
         tidak macet di tengah proses.
       </div>
-      <div class="voice-note" id="voiceStatusNote">✅ Mesin suara siap. File audio/ (kalau sudah ada di server) dipakai lebih dulu - instan &amp; tanpa internet; kalau belum ada, dibuat online lalu disimpan otomatis.</div>
+      <div class="voice-note" id="voiceStatusNote">Memeriksa mesin suara...</div>
       <button class="btn-download-voice" id="btnPuterLogin" style="background:#0984E3;margin-top:8px;width:100%">🔑 Login/Daftar Puter (Sekali, Gratis)</button>
-      <div class="voice-note" id="puterLoginNote">✅ Sudah login.</div>
+      <div class="voice-note" id="puterLoginNote"></div>
       <button class="btn-download-voice" id="btnTestVoice" style="background:#00B894;margin-top:8px;width:100%">🧪 Tes Suara</button>
-      <div class="voice-note" id="voiceTestNote">✅ Berhasil! Mesin suara bekerja normal di perangkat ini.</div>
+      <div class="voice-note" id="voiceTestNote"></div>
     </div>
 
     <!-- UNTUK GURU: BUAT SEMUA SUARA SEKALIGUS DI LAPTOP -->
@@ -149,8 +151,8 @@
         memutar, tanpa perlu internet/proses apa pun.
       </div>
       <button class="btn-download-voice" id="btnGenerateAll" style="background:#00B894;width:100%">🎬 Buat Semua Suara Sekarang</button>
-      <div class="progress-outer" id="genAllProgressOuter" style="display: none;"><div class="progress-inner" id="genAllProgressInner" style="background: rgb(0, 184, 148); width: 0%;"></div></div>
-      <div class="voice-note" id="genAllNote">✅ Selesai! 120 suara siap (120 sudah ada dari sebelumnya, dilewati - tidak dibuat ulang). Sekarang tekan "⬇️ DOWNLOAD APLIKASI" di bagian bawah untuk mengunduh paket (index.html + folder audio baru).</div>
+      <div class="progress-outer" id="genAllProgressOuter"><div class="progress-inner" id="genAllProgressInner" style="background:#00B894"></div></div>
+      <div class="voice-note" id="genAllNote"></div>
     </div>
   </div>
 
@@ -354,22 +356,22 @@ const LessonStore = {
   async remove(key) {
     try {
       const db = await AudioCache.getDbHandle();
-      await new Promise((resolve) => {
+      return await new Promise((resolve) => {
         const tx = db.transaction('lessons', 'readwrite').objectStore('lessons').delete(key);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => resolve();
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => { console.warn('Gagal hapus pelajaran (tx.onerror):', tx.error); resolve(false); };
       });
-    } catch { /* abaikan */ }
+    } catch (err) { console.warn('Gagal hapus pelajaran (exception):', err); return false; }
   },
   async clearAll() {
     try {
       const db = await AudioCache.getDbHandle();
-      await new Promise((resolve) => {
+      return await new Promise((resolve) => {
         const tx = db.transaction('lessons', 'readwrite').objectStore('lessons').clear();
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => resolve();
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => { console.warn('Gagal hapus semua (tx.onerror):', tx.error); resolve(false); };
       });
-    } catch { /* abaikan */ }
+    } catch (err) { console.warn('Gagal hapus semua (exception):', err); return false; }
   },
 };
 // Daftar pelajaran yang sudah tertanam di file ini sejak diunduh (dimuat
@@ -568,22 +570,25 @@ let runCounter = 0;
 async function renderLessonGallery() {
   const all = (await LessonStore.list()).sort((a, b) => b.savedAt - a.savedAt);
   $('lessonCount').textContent = all.length;
-  $('btnClearGallery').style.display = all.length > 0 ? 'inline-block' : 'none';
+  $('btnClearGallery').style.display = all.length > 0 ? 'block' : 'none';
   $('lessonGallery').innerHTML = all.map((l) => `
-    <span class="chip" data-lesson-key="${l.key}" style="cursor:pointer;position:relative;padding-right:20px">
-      <span>${escapeHtml(l.title)}</span>
-      <small>${l.wordCount} kata</small>
-      <span data-lesson-delete="${l.key}" style="position:absolute;top:2px;right:4px;color:#FF7675;font-weight:800;padding:0 4px">✕</span>
-    </span>`).join('') || '<span style="font-size:11px;color:#b2bec3">Belum ada pelajaran tersimpan.</span>';
+    <div class="lesson-row" data-lesson-key="${l.key}"
+         style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid #dfe6e9;width:100%">
+      <div data-lesson-load="${l.key}" style="flex:1;cursor:pointer;min-width:0">
+        <div style="font-size:12px;font-weight:800;color:#2d3436;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(l.title)}</div>
+        <div style="font-size:10px;color:#636e72">${l.wordCount} kata</div>
+      </div>
+      <button data-lesson-delete="${l.key}" style="flex-shrink:0;min-width:40px;height:32px;border-radius:8px;background:#FF7675;color:#fff;font-weight:800;font-size:14px">✕</button>
+    </div>`).join('') || '<span style="font-size:11px;color:#b2bec3">Belum ada pelajaran tersimpan.</span>';
+  $('lessonGallery').style.flexDirection = 'column';
 
-  $('lessonGallery').querySelectorAll('[data-lesson-key]').forEach((el) => {
-    el.addEventListener('click', (e) => {
-      if (e.target.closest('[data-lesson-delete]')) return; // ditangani terpisah di bawah
-      const key = el.dataset.lessonKey;
+  $('lessonGallery').querySelectorAll('[data-lesson-load]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.lessonLoad;
       const lesson = all.find((l) => l.key === key);
       if (lesson) {
         // Mengisi .value lewat kode TIDAK memicu event 'input' - jadi tap di
-        // sini otomatis tidak akan tersimpan ulang sebagai pelajaran baru.
+        // sini tidak akan tersimpan ulang sebagai pelajaran baru.
         $('inputText').value = lesson.text;
         state.words = parseWords(lesson.text);
         state.sentences = parseSentences(lesson.text);
@@ -594,7 +599,8 @@ async function renderLessonGallery() {
   $('lessonGallery').querySelectorAll('[data-lesson-delete]').forEach((el) => {
     el.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await LessonStore.remove(el.dataset.lessonDelete);
+      const ok = await LessonStore.remove(el.dataset.lessonDelete);
+      if (!ok) console.warn('Hapus pelajaran mungkin gagal untuk key:', el.dataset.lessonDelete);
       renderLessonGallery();
     });
   });
@@ -811,7 +817,9 @@ async function generateAudioForBundle(text, lang) {
   }
 }
 
-let newlyGeneratedKeys = new Set(); // kunci audio yang BENAR-BENAR baru dibuat sesi ini (perlu masuk ZIP)
+// Catatan: keputusan "audio mana yang perlu ikut ZIP" sekarang dilakukan
+// langsung saat Download (cek tiap entri IndexedDB ke server), bukan lewat
+// catatan sesi di memori - supaya tahan terhadap reload/tutup tab kapan pun.
 
 async function generateAllAudio() {
   if (!state.words.length && !state.sentences.length) {
@@ -876,7 +884,7 @@ async function generateAllAudio() {
     try {
       await withTimeout((async () => {
         const blob = await generateAudioForBundle(text, lang);
-        if (blob) { await AudioCache.set(key, blob); newlyGeneratedKeys.add(key); }
+        if (blob) { await AudioCache.set(key, blob); }
         else failed++;
       })(), 20000, 'item-keseluruhan');
     } catch (err) {
@@ -902,12 +910,10 @@ async function generateAllAudio() {
 let reparseTimer = null;
 $('inputText').addEventListener('input', (e) => {
   clearTimeout(reparseTimer);
-  reparseTimer = setTimeout(async () => {
+  reparseTimer = setTimeout(() => {
     state.words = parseWords(e.target.value);
     state.sentences = parseSentences(e.target.value);
     renderPreview();
-    await LessonStore.upsert(e.target.value);
-    renderLessonGallery();
   }, 400);
 });
 $('btnSaveLessonNow').addEventListener('click', async () => {
@@ -921,9 +927,24 @@ $('btnSaveLessonNow').addEventListener('click', async () => {
   btn.textContent = ok ? '✅ Tersimpan!' : '❌ Gagal (lihat console)';
   setTimeout(() => { btn.textContent = original; }, 1800);
 });
+let clearGalleryArmed = false;
+let clearGalleryArmTimer = null;
 $('btnClearGallery').addEventListener('click', async () => {
-  if (!confirm('Hapus SEMUA pelajaran tersimpan di galeri ini? Tindakan ini tidak bisa dibatalkan.')) return;
-  await LessonStore.clearAll();
+  const btn = $('btnClearGallery');
+  if (!clearGalleryArmed) {
+    clearGalleryArmed = true;
+    btn.textContent = '⚠️ Tap sekali lagi untuk memastikan hapus semua';
+    clearGalleryArmTimer = setTimeout(() => {
+      clearGalleryArmed = false;
+      btn.textContent = '🗑️ Hapus Semua Galeri';
+    }, 3000);
+    return;
+  }
+  clearTimeout(clearGalleryArmTimer);
+  clearGalleryArmed = false;
+  btn.textContent = '🗑️ Hapus Semua Galeri';
+  const ok = await LessonStore.clearAll();
+  if (!ok) console.warn('Hapus semua galeri mungkin gagal.');
   renderLessonGallery();
 });
 $('btnClear').addEventListener('click', () => {
@@ -1005,21 +1026,26 @@ $('btnDownloadApp').addEventListener('click', async () => {
   try {
     if (!window.fflate) throw new Error('Pustaka ZIP (fflate) belum termuat - periksa koneksi internet lalu muat ulang halaman.');
     btn.disabled = true;
-    btn.textContent = '⏳ Menyiapkan paket unduhan...';
 
-    // Ambil HANYA audio yang benar-benar baru dibuat sesi ini (yang sudah
-    // ada di server tidak perlu diunduh ulang - hemat ukuran paket, dan
-    // guru tinggal menambahkan file baru ke folder audio/ yang sudah ada).
+    // PENTING: ambil dari SEMUA audio yang tersimpan di IndexedDB (bukan
+    // catatan sementara di memori, yang hilang kalau halaman sempat dimuat
+    // ulang) - lalu untuk tiap satu, cek LANGSUNG ke server apakah sudah
+    // ada di sana. Kalau belum, baru dimasukkan ke ZIP. Ini tahan terhadap
+    // reload/tutup tab kapan pun antara "Buat Semua Suara" dan "Download".
     const zipFiles = {};
     let audioCount = 0;
-    for (const key of newlyGeneratedKeys) {
-      const blob = await AudioCache.get(key);
-      if (!blob) continue;
+    const allCached = await AudioCache.getAllEntries();
+    for (let i = 0; i < allCached.length; i++) {
+      const { key, blob } = allCached[i];
+      btn.textContent = `⏳ Memeriksa audio ${i + 1}/${allCached.length}...`;
+      const alreadyRemote = navigator.onLine ? await fetchRemoteAudio(key) : null;
+      if (alreadyRemote) continue; // sudah ada di server, tidak perlu ikut ZIP
       try {
         zipFiles[`audio/${key}.mp3`] = new Uint8Array(await blob.arrayBuffer());
         audioCount++;
       } catch (err) { console.warn('Lewati satu audio saat membuat paket:', err); }
     }
+    btn.textContent = '⏳ Menyiapkan paket unduhan...';
 
     // Kembalikan SEMUA kondisi UI sementara ke keadaan normal SEBELUM
     // mengambil snapshot HTML - supaya file hasil unduhan tidak "membeku"
@@ -1065,7 +1091,6 @@ $('btnDownloadApp').addEventListener('click', async () => {
     document.body.appendChild(a); a.click();
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1200);
 
-    newlyGeneratedKeys.clear(); // sudah masuk paket ini, sesi berikutnya mulai bersih lagi
     setStatus(audioCount > 0
       ? `✅ Paket ZIP diunduh: index.html + ${audioCount} file audio baru.`
       : '✅ Paket ZIP diunduh (belum ada suara baru — tekan "Buat Semua Suara" dulu kalau perlu).');
@@ -1096,6 +1121,5 @@ $('btnDownloadApp').addEventListener('click', async () => {
   window.addEventListener('offline', () => setStatus('📴 Mode offline'));
 })();
 </script>
-
-
-</body></html>
+</body>
+</html>
