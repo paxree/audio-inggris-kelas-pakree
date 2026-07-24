@@ -615,6 +615,7 @@ async function renderLessonGallery() {
       const ok = await LessonStore.remove(el.dataset.lessonDelete);
       if (!ok) console.warn('Hapus pelajaran mungkin gagal untuk key:', el.dataset.lessonDelete);
       renderLessonGallery();
+      setTimeout(renderLessonGallery, 600);
     });
   });
 }
@@ -937,6 +938,7 @@ $('btnSaveLessonNow').addEventListener('click', async () => {
   btn.textContent = '⏳ Menyimpan...';
   const ok = await LessonStore.upsert(text);
   await renderLessonGallery();
+  setTimeout(renderLessonGallery, 600); // jaga-jaga kalau pembaruan pertama terlambat
   btn.textContent = ok ? '✅ Tersimpan!' : '❌ Gagal (lihat console)';
   setTimeout(() => { btn.textContent = original; }, 1800);
 });
@@ -959,6 +961,7 @@ $('btnClearGallery').addEventListener('click', async () => {
   const ok = await LessonStore.clearAll();
   if (!ok) console.warn('Hapus semua galeri mungkin gagal.');
   renderLessonGallery();
+  setTimeout(renderLessonGallery, 600);
 });
 $('btnClear').addEventListener('click', () => {
   $('inputText').value = '';
