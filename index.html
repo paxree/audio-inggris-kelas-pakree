@@ -137,6 +137,7 @@
       <div class="voice-note" id="voiceStatusNote">Memeriksa mesin suara...</div>
       <button class="btn-download-voice" id="btnPuterLogin" style="background:#0984E3;margin-top:8px;width:100%">🔑 Login/Daftar Puter (Sekali, Gratis)</button>
       <div class="voice-note" id="puterLoginNote"></div>
+      <button id="btnPuterLogout" style="display:none;margin-top:6px;width:100%;height:30px;border-radius:999px;background:#fff;color:#FF7675;border:1px solid #FF7675;font-weight:800;font-size:10px">🔁 Ganti Akun (Keluar dari Akun Ini)</button>
       <button class="btn-download-voice" id="btnTestVoice" style="background:#00B894;margin-top:8px;width:100%">🧪 Tes Suara</button>
       <div class="voice-note" id="voiceTestNote"></div>
     </div>
@@ -1002,13 +1003,25 @@ $('btnPuterLogin').addEventListener('click', async () => {
   try {
     if (window.puter?.auth?.isSignedIn?.()) {
       note.textContent = '✅ Sudah login sebelumnya.';
+      $('btnPuterLogout').style.display = 'block';
       return;
     }
     note.textContent = '⏳ Membuka jendela login (izinkan pop-up kalau diminta browser)...';
     await window.puter.auth.signIn();
     note.textContent = '✅ Berhasil login! Jatah suara sekarang jauh lebih besar.';
+    $('btnPuterLogout').style.display = 'block';
   } catch (err) {
     note.textContent = `❌ Login dibatalkan/gagal: "${String(err?.message || err)}". Coba lagi, dan pastikan pop-up tidak diblokir (cek ikon di address bar).`;
+  }
+});
+$('btnPuterLogout').addEventListener('click', async () => {
+  const note = $('puterLoginNote');
+  try {
+    await window.puter.auth.signOut();
+    note.textContent = '👋 Sudah keluar. Tekan "Login/Daftar Puter" lagi untuk masuk dengan akun lain (pilih "Sign up" / email berbeda di jendela yang muncul).';
+    $('btnPuterLogout').style.display = 'none';
+  } catch (err) {
+    note.textContent = `❌ Gagal keluar: "${String(err?.message || err)}".`;
   }
 });
 $('btnTestVoice').addEventListener('click', async () => {
@@ -1132,6 +1145,7 @@ $('btnDownloadApp').addEventListener('click', async () => {
   }
   if (window.puter?.auth?.isSignedIn?.()) {
     $('puterLoginNote').textContent = '✅ Sudah login.';
+    $('btnPuterLogout').style.display = 'block';
   }
   window.addEventListener('online', () => setStatus('🌐 Internet tersambung'));
   window.addEventListener('offline', () => setStatus('📴 Mode offline'));
