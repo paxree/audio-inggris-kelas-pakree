@@ -117,11 +117,12 @@
     </div>
 
     <div style="margin-top:14px">
-      <div class="row-between">
-        <span style="font-size:12px;font-weight:800;color:#636e72">🐢 KECEPATAN</span>
-        <span class="pill" id="speedPill">1.00x</span>
+      <div style="font-size:12px;font-weight:800;color:#636e72;margin-bottom:6px">🐢 KECEPATAN</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-speed active" id="speedNormal" data-rate="1" style="flex:1;height:38px;border-radius:999px;font-weight:800;font-size:12px;border:2px solid #6C5CE7;background:#6C5CE7;color:#fff">🐇 NORMAL</button>
+        <button class="btn-speed" id="speedSlow" data-rate="0.7" style="flex:1;height:38px;border-radius:999px;font-weight:800;font-size:12px;border:2px solid #dfe6e9;background:#fff;color:#636e72">🐢 PELAN</button>
+        <button class="btn-speed" id="speedVerySlow" data-rate="0.5" style="flex:1;height:38px;border-radius:999px;font-weight:800;font-size:11px;border:2px solid #dfe6e9;background:#fff;color:#636e72">🐌 AMAT PELAN</button>
       </div>
-      <input type="range" id="speedRange" min="0.6" max="1" step="0.05" value="1">
     </div>
 
     <!-- MESIN SUARA -->
@@ -524,6 +525,19 @@ function playAudioElement(audio, rate, isStale) {
   });
 }
 
+// Tiga kecepatan tetap (bukan slider bebas) - supaya jumlah variasi suara
+// yang perlu disiapkan tetap terkendali (3, bukan tak terbatas). Semua
+// versi "pelan" untuk Inggris disintesis ASLI pelan (SSML), bukan hasil
+// regangan, supaya artikulasinya tetap jernih untuk latihan pelafalan.
+const RATE_NORMAL = 1;
+const RATE_SLOW = 0.7;
+const RATE_VERY_SLOW = 0.5;
+
+function cacheKeyFor(text, lang, rate) {
+  const nativeSlow = lang === 'en' && rate < 0.999;
+  return nativeSlow ? `${lang}_${hashKey(text)}_r${Math.round(rate * 100)}` : `${lang}_${hashKey(text)}`;
+}
+
 /**
  * Mengucapkan sebuah teks (Inggris/Indonesia). Prioritas: tertanam -> cache
  * -> online (Puter.js). Hasil online otomatis disimpan ke cache.
@@ -535,7 +549,7 @@ async function speak(text, lang, rate, isStale) {
   // lagi saat diputar (sudah pas temponya). Indonesia & Inggris normal tetap
   // seperti biasa (satu kunci, playbackRate diatur saat memutar).
   const nativeSlow = lang === 'en' && rate < 0.999;
-  const cacheKey = nativeSlow ? `${lang}_${hashKey(text)}_r${Math.round(rate * 100)}` : `${lang}_${hashKey(text)}`;
+  const cacheKey = cacheKeyFor(text, lang, rate);
   const playRate = nativeSlow ? 1 : rate;
 
   // 1) Sudah tersimpan di HP ini (IndexedDB)? langsung pakai, paling cepat.
@@ -836,9 +850,9 @@ function sourceLabel(s) {
 // ---------------------------------------------------------------------
 // KHUSUS GURU: BUAT SEMUA SUARA SEKALIGUS
 // ---------------------------------------------------------------------
-async function generateAudioForBundle(text, lang) {
+async function generateAudioForBundle(text, lang, rate = 1) {
   try {
-    const audio = await withTimeout(synthesizeWithPuter(text, lang), 15000, 'sintesis');
+    const audio = await withTimeout(synthesizeWithPuter(text, lang, rate), 15000, 'sintesis');
     const res = await withTimeout(fetch(audio.src), 15000, 'ambil-bytes');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.blob();
@@ -863,34 +877,43 @@ async function generateAllAudio() {
   $('genAllNote').textContent = 'Menyiapkan daftar kata & kalimat...';
 
   const items = new Map();
-  const addItem = (text, lang) => {
+  const addItem = (text, lang, rate) => {
     if (!text || !text.trim()) return;
-    const key = `${lang}_${hashKey(text)}`;
-    if (!items.has(key)) items.set(key, { text, lang });
+    const key = cacheKeyFor(text, lang, rate);
+    if (!items.has(key)) items.set(key, { text, lang, rate });
+  };
+  // Inggris: 3 kecepatan (normal, pelan, amat pelan) - semuanya perlu
+  // disiapkan di muka karena konsep aplikasi ini untuk pemula/anak yang
+  // butuh keduanya (pelan = artikulasi, normal = latihan dengar).
+  // Indonesia: 1 kecepatan saja (terjemahan selalu dibaca normal).
+  const addEnglishAllSpeeds = (text) => {
+    addItem(text, 'en', RATE_NORMAL);
+    addItem(text, 'en', RATE_SLOW);
+    addItem(text, 'en', RATE_VERY_SLOW);
   };
   const totalPrep = state.words.length + state.sentences.length;
   let prepDone = 0;
   for (const w of state.words) {
-    addItem(w.original, 'en');
+    addEnglishAllSpeeds(w.original);
     if (!SKIP_WORDS.has(w.lower)) {
       const tr = await translateText(w.lower);
-      if (tr) addItem(tr, 'id');
+      if (tr) addItem(tr, 'id', RATE_NORMAL);
     }
     prepDone++;
     $('genAllNote').textContent = `Menerjemahkan kata & kalimat (${prepDone}/${totalPrep})...`;
   }
   for (const s of state.sentences) {
-    addItem(s, 'en');
+    addEnglishAllSpeeds(s);
     const tr = await translateText(s);
-    if (tr) addItem(tr, 'id');
+    if (tr) addItem(tr, 'id', RATE_NORMAL);
     prepDone++;
     $('genAllNote').textContent = `Menerjemahkan kata & kalimat (${prepDone}/${totalPrep})...`;
   }
 
   const list = [...items.values()];
   let done = 0, failed = 0, skippedExisting = 0;
-  for (const { text, lang } of list) {
-    const key = `${lang}_${hashKey(text)}`;
+  for (const { text, lang, rate } of list) {
+    const key = cacheKeyFor(text, lang, rate);
 
     // Sudah ada sebagai file audio/ di server (dari sesi sebelumnya yang
     // sudah diunggah)? JANGAN dibuat ulang - ini yang menjaga "kekayaan
@@ -911,10 +934,11 @@ async function generateAllAudio() {
       continue;
     }
 
-    $('genAllNote').textContent = `Memproses ${done + 1}/${list.length}: "${text.slice(0, 40)}" (${lang})...`;
+    const rateLabel = rate === RATE_NORMAL ? 'normal' : rate === RATE_SLOW ? 'pelan' : 'amat pelan';
+    $('genAllNote').textContent = `Memproses ${done + 1}/${list.length}: "${text.slice(0, 40)}" (${lang}, ${rateLabel})...`;
     try {
       await withTimeout((async () => {
-        const blob = await generateAudioForBundle(text, lang);
+        const blob = await generateAudioForBundle(text, lang, rate);
         if (blob) { await AudioCache.set(key, blob); }
         else failed++;
       })(), 20000, 'item-keseluruhan');
@@ -985,9 +1009,17 @@ $('btnClear').addEventListener('click', () => {
   state.words = []; state.sentences = [];
   renderPreview();
 });
-$('speedRange').addEventListener('input', (e) => {
-  state.rate = parseFloat(e.target.value);
-  $('speedPill').textContent = state.rate.toFixed(2) + 'x';
+document.querySelectorAll('.btn-speed').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    state.rate = parseFloat(btn.dataset.rate);
+    document.querySelectorAll('.btn-speed').forEach((b) => {
+      const active = b === btn;
+      b.classList.toggle('active', active);
+      b.style.background = active ? '#6C5CE7' : '#fff';
+      b.style.color = active ? '#fff' : '#636e72';
+      b.style.borderColor = active ? '#6C5CE7' : '#dfe6e9';
+    });
+  });
 });
 [1, 3, 5].forEach((n) => {
   $('repeat' + n).addEventListener('click', () => {
