@@ -1,6 +1,4 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
+<html lang="id"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>AUDIO INGGRIS - Kelas Pakree</title>
@@ -111,7 +109,7 @@
         <span class="pill" id="lessonCount">0</span>
       </div>
       <div style="font-size:10px;color:#636e72;margin:4px 0 6px">Tap untuk memuat pelajaran lama ke kotak teks di atas.</div>
-      <div class="chips" id="lessonGallery" style="max-height:120px"></div>
+      <div class="chips" id="lessonGallery" style="max-height: 120px; flex-direction: column;"><span style="font-size:11px;color:#b2bec3">Belum ada pelajaran tersimpan.</span></div>
       <button id="btnSaveLessonNow" style="margin-top:8px;width:100%;height:34px;border-radius:999px;background:#00B894;color:#fff;font-weight:800;font-size:11px">💾 Simpan Teks Ini ke Galeri Sekarang</button>
       <button id="btnClearGallery" style="display:none;margin-top:8px;width:100%;height:34px;border-radius:999px;background:#FF7675;color:#fff;font-weight:800;font-size:11px">🗑️ Hapus Semua Galeri</button>
     </div>
@@ -134,9 +132,9 @@
         <b>login sekali</b> di bawah ini supaya jatahnya jauh lebih besar dan
         tidak macet di tengah proses.
       </div>
-      <div class="voice-note" id="voiceStatusNote">Memeriksa mesin suara...</div>
+      <div class="voice-note" id="voiceStatusNote">✅ Mesin suara siap. File audio/ (kalau sudah ada di server) dipakai lebih dulu - instan &amp; tanpa internet; kalau belum ada, dibuat online lalu disimpan otomatis.</div>
       <button class="btn-download-voice" id="btnPuterLogin" style="background:#0984E3;margin-top:8px;width:100%">🔑 Login/Daftar Puter (Sekali, Gratis)</button>
-      <div class="voice-note" id="puterLoginNote"></div>
+      <div class="voice-note" id="puterLoginNote">✅ Sudah login.</div>
       <button class="btn-download-voice" id="btnTestVoice" style="background:#00B894;margin-top:8px;width:100%">🧪 Tes Suara</button>
       <div class="voice-note" id="voiceTestNote"></div>
     </div>
@@ -151,7 +149,7 @@
         memutar, tanpa perlu internet/proses apa pun.
       </div>
       <button class="btn-download-voice" id="btnGenerateAll" style="background:#00B894;width:100%">🎬 Buat Semua Suara Sekarang</button>
-      <div class="progress-outer" id="genAllProgressOuter"><div class="progress-inner" id="genAllProgressInner" style="background:#00B894"></div></div>
+      <div class="progress-outer" id="genAllProgressOuter" style="display: none;"><div class="progress-inner" id="genAllProgressInner" style="background: rgb(0, 184, 148); width: 0%;"></div></div>
       <div class="voice-note" id="genAllNote"></div>
     </div>
   </div>
@@ -1121,5 +1119,6 @@ $('btnDownloadApp').addEventListener('click', async () => {
   window.addEventListener('offline', () => setStatus('📴 Mode offline'));
 })();
 </script>
-</body>
-</html>
+
+
+</body></html>
