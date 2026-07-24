@@ -467,8 +467,18 @@ const PUTER_EN_OPTS = { provider: 'aws-polly', voice: 'Joanna', engine: 'neural'
 // mendeteksi bahasa langsung dari teksnya sendiri (tidak perlu kode bahasa).
 const PUTER_ID_OPTS = { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts', voice: 'Kore' };
 
-async function synthesizeWithPuter(text, lang) {
+async function synthesizeWithPuter(text, lang, rate = 1) {
   if (!window.puter?.ai?.txt2speech) throw new Error('Puter.js belum termuat');
+  // Kecepatan lambat untuk Inggris: minta Amazon Polly mensintesis LANGSUNG
+  // dengan tempo pelan (SSML <prosody rate="...">), bukan membuat audio
+  // normal lalu diregangkan saat diputar - hasilnya jauh lebih jernih &
+  // detail, cocok untuk panduan pelafalan anak, dan tidak tergantung
+  // kualitas mesin peregangan audio di HP (yang sering kasar/kotor).
+  if (lang === 'en' && rate < 0.999) {
+    const pct = Math.round(rate * 100);
+    const ssml = `<speak><prosody rate="${pct}%">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</prosody></speak>`;
+    return await window.puter.ai.txt2speech(ssml, { ...PUTER_EN_OPTS, text_type: 'ssml' });
+  }
   const opts = lang === 'id' ? PUTER_ID_OPTS : PUTER_EN_OPTS;
   // Kata tunggal Bahasa Indonesia tanpa tanda baca cenderung membuat gaya
   // bicara model AI tidak konsisten (kurang konteks "kalimat selesai").
@@ -520,14 +530,20 @@ function playAudioElement(audio, rate, isStale) {
  */
 async function speak(text, lang, rate, isStale) {
   if (!text || !text.trim() || (isStale && isStale())) return 'skip';
-  const cacheKey = `${lang}_${hashKey(text)}`;
+  // Inggris lambat = disintesis ASLI pelan (jernih, lihat synthesizeWithPuter)
+  // jadi butuh kunci cache TERPISAH per kecepatan, dan TIDAK boleh diregangkan
+  // lagi saat diputar (sudah pas temponya). Indonesia & Inggris normal tetap
+  // seperti biasa (satu kunci, playbackRate diatur saat memutar).
+  const nativeSlow = lang === 'en' && rate < 0.999;
+  const cacheKey = nativeSlow ? `${lang}_${hashKey(text)}_r${Math.round(rate * 100)}` : `${lang}_${hashKey(text)}`;
+  const playRate = nativeSlow ? 1 : rate;
 
   // 1) Sudah tersimpan di HP ini (IndexedDB)? langsung pakai, paling cepat.
   const cached = await AudioCache.get(cacheKey);
   if (isStale && isStale()) return 'skip';
   if (cached) {
     const url = URL.createObjectURL(cached);
-    await playAudioElement(new Audio(url), rate, isStale);
+    await playAudioElement(new Audio(url), playRate, isStale);
     URL.revokeObjectURL(url);
     return 'cache';
   }
@@ -541,7 +557,7 @@ async function speak(text, lang, rate, isStale) {
     if (remoteBlob) {
       AudioCache.set(cacheKey, remoteBlob);
       const url = URL.createObjectURL(remoteBlob);
-      await playAudioElement(new Audio(url), rate, isStale);
+      await playAudioElement(new Audio(url), playRate, isStale);
       URL.revokeObjectURL(url);
       return 'file';
     }
@@ -549,9 +565,9 @@ async function speak(text, lang, rate, isStale) {
 
   if (navigator.onLine && onlineFailStreak < ONLINE_FAIL_LIMIT) {
     try {
-      const audio = await synthesizeWithPuter(text, lang);
+      const audio = await synthesizeWithPuter(text, lang, rate);
       if (isStale && isStale()) return 'skip';
-      const ok = await playAudioElement(audio, rate, isStale);
+      const ok = await playAudioElement(audio, playRate, isStale);
       if (!ok) throw new Error('Audio gagal diputar (onerror/timeout)');
       onlineFailStreak = 0;
       // Simpan ke cache di latar belakang (tidak menghalangi), best-effort.
