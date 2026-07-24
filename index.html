@@ -1,4 +1,6 @@
-<html lang="id"><script src="chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/content/location/location.js" id="eppiocemhmnlbhjplcgkofciiegomcon"></script><script src="chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/libs/extend-native-history-api.js"></script><script src="chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/libs/requests.js"></script><head>
+<!DOCTYPE html>
+<html lang="id">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>AUDIO INGGRIS - Kelas Pakree</title>
@@ -87,7 +89,7 @@
   .credit { font-size:11px; color:#888; text-align:center; margin-top:8px; font-style:italic; }
 </style>
 </head>
-<body __processed_53973876-738a-44b4-bc29-64872f177ea6__="true">
+<body>
 <div class="wrap">
 
   <header>
@@ -106,33 +108,12 @@
     <div class="engine-box" style="border-color:#FDCB6E;background:#fffdf5">
       <div class="row-between">
         <span style="font-size:11px;font-weight:800;color:#E17055">📚 GALERI PELAJARAN TERSIMPAN</span>
-        <span class="pill" id="lessonCount">3</span>
+        <span class="pill" id="lessonCount">0</span>
       </div>
       <div style="font-size:10px;color:#636e72;margin:4px 0 6px">Tap untuk memuat pelajaran lama ke kotak teks di atas.</div>
-      <div class="chips" id="lessonGallery" style="max-height: 120px; flex-direction: column;">
-    <div class="lesson-row" data-lesson-key="lesson_lnipdu" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid #dfe6e9;width:100%">
-      <div data-lesson-load="lesson_lnipdu" style="flex:1;cursor:pointer;min-width:0">
-        <div style="font-size:12px;font-weight:800;color:#2d3436;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">After that I take a...</div>
-        <div style="font-size:10px;color:#636e72">12 kata</div>
-      </div>
-      <button data-lesson-delete="lesson_lnipdu" style="flex-shrink:0;min-width:40px;height:32px;border-radius:8px;background:#FF7675;color:#fff;font-weight:800;font-size:14px">✕</button>
-    </div>
-    <div class="lesson-row" data-lesson-key="lesson_14rjmig" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid #dfe6e9;width:100%">
-      <div data-lesson-load="lesson_14rjmig" style="flex:1;cursor:pointer;min-width:0">
-        <div style="font-size:12px;font-weight:800;color:#2d3436;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Then I help my parents...</div>
-        <div style="font-size:10px;color:#636e72">12 kata</div>
-      </div>
-      <button data-lesson-delete="lesson_14rjmig" style="flex-shrink:0;min-width:40px;height:32px;border-radius:8px;background:#FF7675;color:#fff;font-weight:800;font-size:14px">✕</button>
-    </div>
-    <div class="lesson-row" data-lesson-key="lesson_1fje4vn" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid #dfe6e9;width:100%">
-      <div data-lesson-load="lesson_1fje4vn" style="flex:1;cursor:pointer;min-width:0">
-        <div style="font-size:12px;font-weight:800;color:#2d3436;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Before school in the morning...</div>
-        <div style="font-size:10px;color:#636e72">19 kata</div>
-      </div>
-      <button data-lesson-delete="lesson_1fje4vn" style="flex-shrink:0;min-width:40px;height:32px;border-radius:8px;background:#FF7675;color:#fff;font-weight:800;font-size:14px">✕</button>
-    </div></div>
+      <div class="chips" id="lessonGallery" style="max-height:120px"></div>
       <button id="btnSaveLessonNow" style="margin-top:8px;width:100%;height:34px;border-radius:999px;background:#00B894;color:#fff;font-weight:800;font-size:11px">💾 Simpan Teks Ini ke Galeri Sekarang</button>
-      <button id="btnClearGallery" style="display: block; margin-top: 8px; width: 100%; height: 34px; border-radius: 999px; background: rgb(255, 118, 117); color: rgb(255, 255, 255); font-weight: 800; font-size: 11px;">🗑️ Hapus Semua Galeri</button>
+      <button id="btnClearGallery" style="display:none;margin-top:8px;width:100%;height:34px;border-radius:999px;background:#FF7675;color:#fff;font-weight:800;font-size:11px">🗑️ Hapus Semua Galeri</button>
     </div>
 
     <div style="margin-top:14px">
@@ -154,10 +135,10 @@
         <b>login sekali</b> di bawah ini supaya jatahnya jauh lebih besar dan
         tidak macet di tengah proses.
       </div>
-      <div class="voice-note" id="voiceStatusNote">✅ Mesin suara siap. File audio/ (kalau sudah ada di server) dipakai lebih dulu - instan &amp; tanpa internet; kalau belum ada, dibuat online lalu disimpan otomatis.</div>
+      <div class="voice-note" id="voiceStatusNote">Memeriksa mesin suara...</div>
       <button class="btn-download-voice" id="btnPuterLogin" style="background:#0984E3;margin-top:8px;width:100%">🔑 Login/Daftar Puter (Sekali, Gratis)</button>
-      <div class="voice-note" id="puterLoginNote">✅ Sudah login.</div>
-      <button id="btnPuterLogout" style="display: block; margin-top: 6px; width: 100%; height: 30px; border-radius: 999px; background: rgb(255, 255, 255); color: rgb(255, 118, 117); border: 1px solid rgb(255, 118, 117); font-weight: 800; font-size: 10px;">🔁 Ganti Akun (Keluar dari Akun Ini)</button>
+      <div class="voice-note" id="puterLoginNote"></div>
+      <button id="btnPuterLogout" style="display:none;margin-top:6px;width:100%;height:30px;border-radius:999px;background:#fff;color:#FF7675;border:1px solid #FF7675;font-weight:800;font-size:10px">🔁 Ganti Akun (Keluar dari Akun Ini)</button>
       <button class="btn-download-voice" id="btnTestVoice" style="background:#00B894;margin-top:8px;width:100%">🧪 Tes Suara</button>
       <div class="voice-note" id="voiceTestNote"></div>
     </div>
@@ -172,7 +153,7 @@
         memutar, tanpa perlu internet/proses apa pun.
       </div>
       <button class="btn-download-voice" id="btnGenerateAll" style="background:#00B894;width:100%">🎬 Buat Semua Suara Sekarang</button>
-      <div class="progress-outer" id="genAllProgressOuter" style="display: none;"><div class="progress-inner" id="genAllProgressInner" style="background: rgb(0, 184, 148); width: 0%;"></div></div>
+      <div class="progress-outer" id="genAllProgressOuter"><div class="progress-inner" id="genAllProgressInner" style="background:#00B894"></div></div>
       <div class="voice-note" id="genAllNote"></div>
     </div>
   </div>
@@ -487,18 +468,8 @@ const PUTER_EN_OPTS = { provider: 'aws-polly', voice: 'Joanna', engine: 'neural'
 // mendeteksi bahasa langsung dari teksnya sendiri (tidak perlu kode bahasa).
 const PUTER_ID_OPTS = { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts', voice: 'Kore' };
 
-async function synthesizeWithPuter(text, lang, rate = 1) {
+async function synthesizeWithPuter(text, lang) {
   if (!window.puter?.ai?.txt2speech) throw new Error('Puter.js belum termuat');
-  // Kecepatan lambat untuk Inggris: minta Amazon Polly mensintesis LANGSUNG
-  // dengan tempo pelan (SSML <prosody rate="...">), bukan membuat audio
-  // normal lalu diregangkan saat diputar - hasilnya jauh lebih jernih &
-  // detail, cocok untuk panduan pelafalan anak, dan tidak tergantung
-  // kualitas mesin peregangan audio di HP (yang sering kasar/kotor).
-  if (lang === 'en' && rate < 0.999) {
-    const pct = Math.round(rate * 100);
-    const ssml = `<speak><prosody rate="${pct}%">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</prosody></speak>`;
-    return await window.puter.ai.txt2speech(ssml, { ...PUTER_EN_OPTS, text_type: 'ssml' });
-  }
   const opts = lang === 'id' ? PUTER_ID_OPTS : PUTER_EN_OPTS;
   // Kata tunggal Bahasa Indonesia tanpa tanda baca cenderung membuat gaya
   // bicara model AI tidak konsisten (kurang konteks "kalimat selesai").
@@ -507,6 +478,56 @@ async function synthesizeWithPuter(text, lang, rate = 1) {
   let synthText = text;
   if (lang === 'id' && !/[.!?]$/.test(text.trim())) synthText = text.trim() + '.';
   return await window.puter.ai.txt2speech(synthText, opts); // -> HTMLAudioElement
+}
+
+// ---------------------------------------------------------------------
+// VERSI PELAN: diolah dari audio NORMAL yang sudah pasti benar isinya
+// (bukan minta AI membuat ulang) - dikerjakan sekali di laptop guru lewat
+// Web Audio API bawaan browser, bukan real-time di HP anak. Nada suara
+// ikut turun sedikit (seperti kaset diputar pelan), tapi hasilnya bersih
+// & konsisten - tidak akan pernah "pecah/kotor" seperti regang real-time
+// di HP murah, dan ISINYA DIJAMIN SAMA karena berasal dari audio yang
+// sama, bukan sintesis AI baru yang berisiko salah.
+function audioBufferToWavBlob(buffer) {
+  const numCh = buffer.numberOfChannels;
+  const length = buffer.length * numCh * 2 + 44;
+  const arrBuf = new ArrayBuffer(length);
+  const view = new DataView(arrBuf);
+  const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+  writeStr(0, 'RIFF'); view.setUint32(4, 36 + buffer.length * numCh * 2, true);
+  writeStr(8, 'WAVE'); writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, numCh, true); view.setUint32(24, buffer.sampleRate, true);
+  view.setUint32(28, buffer.sampleRate * numCh * 2, true); view.setUint16(32, numCh * 2, true);
+  view.setUint16(34, 16, true); writeStr(36, 'data'); view.setUint32(40, buffer.length * numCh * 2, true);
+  let offset = 44;
+  const chans = [];
+  for (let c = 0; c < numCh; c++) chans.push(buffer.getChannelData(c));
+  for (let i = 0; i < buffer.length; i++) {
+    for (let c = 0; c < numCh; c++) {
+      const sample = Math.max(-1, Math.min(1, chans[c][i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+  return new Blob([arrBuf], { type: 'audio/wav' });
+}
+
+async function renderSlowVariant(normalBlob, rate) {
+  const arrayBuffer = await normalBlob.arrayBuffer();
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const tempCtx = new AC();
+  const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
+  await tempCtx.close();
+  const outLength = Math.ceil(audioBuffer.length / rate);
+  const offlineCtx = new OfflineAudioContext(audioBuffer.numberOfChannels, outLength, audioBuffer.sampleRate);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.playbackRate.value = rate;
+  source.connect(offlineCtx.destination);
+  source.start(0);
+  const rendered = await offlineCtx.startRendering();
+  return audioBufferToWavBlob(rendered);
 }
 
 let onlineFailStreak = 0;
@@ -598,13 +619,31 @@ async function speak(text, lang, rate, isStale) {
 
   if (navigator.onLine && onlineFailStreak < ONLINE_FAIL_LIMIT) {
     try {
-      const audio = await synthesizeWithPuter(text, lang, rate);
-      if (isStale && isStale()) return 'skip';
-      const ok = await playAudioElement(audio, playRate, isStale);
+      let finalBlob;
+      if (nativeSlow) {
+        // Versi pelan belum ada - perlu versi normal dulu (cache/server/Puter),
+        // baru diolah jadi pelan secara lokal (bukan minta Puter versi pelan).
+        const normalKey = cacheKeyFor(text, lang, 1);
+        let normalBlob = await AudioCache.get(normalKey);
+        if (!normalBlob && navigator.onLine) normalBlob = await fetchRemoteAudio(normalKey);
+        if (!normalBlob) {
+          const normalAudio = await synthesizeWithPuter(text, lang);
+          normalBlob = await fetch(normalAudio.src).then((r) => r.blob());
+          AudioCache.set(normalKey, normalBlob);
+        }
+        if (isStale && isStale()) return 'skip';
+        finalBlob = await renderSlowVariant(normalBlob, rate);
+      } else {
+        const audio = await synthesizeWithPuter(text, lang);
+        if (isStale && isStale()) return 'skip';
+        finalBlob = await fetch(audio.src).then((r) => r.blob());
+      }
+      const url = URL.createObjectURL(finalBlob);
+      const ok = await playAudioElement(new Audio(url), playRate, isStale);
+      URL.revokeObjectURL(url);
       if (!ok) throw new Error('Audio gagal diputar (onerror/timeout)');
       onlineFailStreak = 0;
-      // Simpan ke cache di latar belakang (tidak menghalangi), best-effort.
-      fetch(audio.src).then((r) => r.blob()).then((blob) => AudioCache.set(cacheKey, blob)).catch(() => {});
+      AudioCache.set(cacheKey, finalBlob);
       return 'online';
     } catch (err) {
       console.warn('Suara online gagal:', err);
@@ -869,9 +908,14 @@ function sourceLabel(s) {
 // ---------------------------------------------------------------------
 // KHUSUS GURU: BUAT SEMUA SUARA SEKALIGUS
 // ---------------------------------------------------------------------
-async function generateAudioForBundle(text, lang, rate = 1) {
+async function generateAudioForBundle(text, lang, rate = 1, normalBlobForSlow = null) {
   try {
-    const audio = await withTimeout(synthesizeWithPuter(text, lang, rate), 15000, 'sintesis');
+    if (rate < 0.999 && normalBlobForSlow) {
+      // Versi pelan: olah dari audio normal yang SUDAH BENAR, bukan minta
+      // AI membuat ulang - menjamin isinya tetap sama & hemat jatah Puter.
+      return await withTimeout(renderSlowVariant(normalBlobForSlow, rate), 15000, 'olah-pelan');
+    }
+    const audio = await withTimeout(synthesizeWithPuter(text, lang), 15000, 'sintesis');
     const res = await withTimeout(fetch(audio.src), 15000, 'ambil-bytes');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.blob();
@@ -929,45 +973,58 @@ async function generateAllAudio() {
     $('genAllNote').textContent = `Menerjemahkan kata & kalimat (${prepDone}/${totalPrep})...`;
   }
 
+  // Kelompokkan per (text, lang) supaya versi NORMAL selalu diproses dulu,
+  // baru versi pelan & amat pelan diturunkan darinya (bukan minta Puter lagi).
+  const groups = new Map(); // "lang|text" -> { text, lang, rates: Set }
+  for (const { text, lang, rate } of items.values()) {
+    const gKey = `${lang}|${text}`;
+    if (!groups.has(gKey)) groups.set(gKey, { text, lang, rates: new Set() });
+    groups.get(gKey).rates.add(rate);
+  }
+
   const list = [...items.values()];
   let done = 0, failed = 0, skippedExisting = 0;
-  for (const { text, lang, rate } of list) {
-    const key = cacheKeyFor(text, lang, rate);
+  for (const { text, lang, rates } of groups.values()) {
+    const sortedRates = [...rates].sort((a, b) => b - a); // normal (1) dulu, baru yang lebih pelan
+    let normalBlob = null;
+    for (const rate of sortedRates) {
+      const key = cacheKeyFor(text, lang, rate);
+      const rateLabel = rate === RATE_NORMAL ? 'normal' : rate === RATE_SLOW ? 'pelan' : 'amat pelan';
 
-    // Sudah ada sebagai file audio/ di server (dari sesi sebelumnya yang
-    // sudah diunggah)? JANGAN dibuat ulang - ini yang menjaga "kekayaan
-    // suara" tidak pernah hilang/dibuang percuma walau terus bertambah.
-    const remote = await fetchRemoteAudio(key);
-    if (remote) {
-      AudioCache.set(key, remote); // simpan juga ke lokal untuk pemakaian offline
-      skippedExisting++;
+      // Sudah ada sebagai file audio/ di server (dari sesi sebelumnya)?
+      const remote = await fetchRemoteAudio(key);
+      if (remote) {
+        AudioCache.set(key, remote);
+        if (rate === RATE_NORMAL) normalBlob = remote;
+        skippedExisting++; done++;
+        $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
+        continue;
+      }
+      const existingLocal = await AudioCache.get(key);
+      if (existingLocal) {
+        if (rate === RATE_NORMAL) normalBlob = existingLocal;
+        skippedExisting++; done++;
+        $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
+        continue;
+      }
+
+      $('genAllNote').textContent = `Memproses ${done + 1}/${list.length}: "${text.slice(0, 40)}" (${lang}, ${rateLabel})...`;
+      try {
+        await withTimeout((async () => {
+          const blob = await generateAudioForBundle(text, lang, rate, normalBlob);
+          if (blob) {
+            await AudioCache.set(key, blob);
+            if (rate === RATE_NORMAL) normalBlob = blob;
+          } else failed++;
+        })(), 20000, 'item-keseluruhan');
+      } catch (err) {
+        failed++;
+        console.warn('Item gagal/timeout (pengaman luar):', text, err);
+      }
       done++;
       $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
-      continue;
+      await sleep(30);
     }
-    const existingLocal = await AudioCache.get(key);
-    if (existingLocal) {
-      skippedExisting++;
-      done++;
-      $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
-      continue;
-    }
-
-    const rateLabel = rate === RATE_NORMAL ? 'normal' : rate === RATE_SLOW ? 'pelan' : 'amat pelan';
-    $('genAllNote').textContent = `Memproses ${done + 1}/${list.length}: "${text.slice(0, 40)}" (${lang}, ${rateLabel})...`;
-    try {
-      await withTimeout((async () => {
-        const blob = await generateAudioForBundle(text, lang, rate);
-        if (blob) { await AudioCache.set(key, blob); }
-        else failed++;
-      })(), 20000, 'item-keseluruhan');
-    } catch (err) {
-      failed++;
-      console.warn('Item gagal/timeout (pengaman luar):', text, err);
-    }
-    done++;
-    $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
-    await sleep(30);
   }
 
   const skipNote = skippedExisting > 0 ? ` (${skippedExisting} sudah ada dari sebelumnya, dilewati - tidak dibuat ulang)` : '';
@@ -1218,6 +1275,5 @@ $('btnDownloadApp').addEventListener('click', async () => {
   window.addEventListener('offline', () => setStatus('📴 Mode offline'));
 })();
 </script>
-
-
-</body></html>
+</body>
+</html>
