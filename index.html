@@ -1,4 +1,6 @@
-<html lang="id"><head>
+<!DOCTYPE html>
+<html lang="id">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>AUDIO INGGRIS - Kelas Pakree</title>
@@ -109,7 +111,7 @@
         <span class="pill" id="lessonCount">0</span>
       </div>
       <div style="font-size:10px;color:#636e72;margin:4px 0 6px">Tap untuk memuat pelajaran lama ke kotak teks di atas.</div>
-      <div class="chips" id="lessonGallery" style="max-height: 120px; flex-direction: column;"><span style="font-size:11px;color:#b2bec3">Belum ada pelajaran tersimpan.</span></div>
+      <div class="chips" id="lessonGallery" style="max-height:120px"></div>
       <button id="btnSaveLessonNow" style="margin-top:8px;width:100%;height:34px;border-radius:999px;background:#00B894;color:#fff;font-weight:800;font-size:11px">💾 Simpan Teks Ini ke Galeri Sekarang</button>
       <button id="btnClearGallery" style="display:none;margin-top:8px;width:100%;height:34px;border-radius:999px;background:#FF7675;color:#fff;font-weight:800;font-size:11px">🗑️ Hapus Semua Galeri</button>
     </div>
@@ -132,9 +134,9 @@
         <b>login sekali</b> di bawah ini supaya jatahnya jauh lebih besar dan
         tidak macet di tengah proses.
       </div>
-      <div class="voice-note" id="voiceStatusNote">✅ Mesin suara siap. File audio/ (kalau sudah ada di server) dipakai lebih dulu - instan &amp; tanpa internet; kalau belum ada, dibuat online lalu disimpan otomatis.</div>
+      <div class="voice-note" id="voiceStatusNote">Memeriksa mesin suara...</div>
       <button class="btn-download-voice" id="btnPuterLogin" style="background:#0984E3;margin-top:8px;width:100%">🔑 Login/Daftar Puter (Sekali, Gratis)</button>
-      <div class="voice-note" id="puterLoginNote">✅ Sudah login.</div>
+      <div class="voice-note" id="puterLoginNote"></div>
       <button class="btn-download-voice" id="btnTestVoice" style="background:#00B894;margin-top:8px;width:100%">🧪 Tes Suara</button>
       <div class="voice-note" id="voiceTestNote"></div>
     </div>
@@ -149,7 +151,7 @@
         memutar, tanpa perlu internet/proses apa pun.
       </div>
       <button class="btn-download-voice" id="btnGenerateAll" style="background:#00B894;width:100%">🎬 Buat Semua Suara Sekarang</button>
-      <div class="progress-outer" id="genAllProgressOuter" style="display: none;"><div class="progress-inner" id="genAllProgressInner" style="background: rgb(0, 184, 148); width: 0%;"></div></div>
+      <div class="progress-outer" id="genAllProgressOuter"><div class="progress-inner" id="genAllProgressInner" style="background:#00B894"></div></div>
       <div class="voice-note" id="genAllNote"></div>
     </div>
   </div>
@@ -262,7 +264,7 @@ const AudioCache = (() => {
   let dbPromise = null;
   function getDb() {
     if (!dbPromise) {
-      dbPromise = new Promise((resolve, reject) => {
+      const openPromise = new Promise((resolve, reject) => {
         const req = indexedDB.open('audio-inggris-cache', 2);
         req.onupgradeneeded = () => {
           const db = req.result;
@@ -271,6 +273,19 @@ const AudioCache = (() => {
         };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
+        // Terjadi kalau ada tab/jendela LAIN dari aplikasi ini masih terbuka
+        // dengan koneksi versi lama - browser menahan pembaruan sampai
+        // semuanya ditutup. Ini bukan error yang menyelesaikan Promise,
+        // makanya perlu batas waktu terpisah di bawah supaya tidak
+        // menggantung selamanya.
+        req.onblocked = () => console.warn('IndexedDB terkunci - kemungkinan ada tab lain dari aplikasi ini masih terbuka.');
+      });
+      // Batas waktu tegas: kalau dalam 6 detik penyimpanan belum siap
+      // (kemungkinan besar karena tab lain masih terbuka), jangan biarkan
+      // pemanggil menunggu selamanya - biarkan mereka mencoba lagi nanti.
+      dbPromise = withTimeout(openPromise, 6000, 'buka-penyimpanan').catch((err) => {
+        dbPromise = null; // jangan simpan kegagalan - beri kesempatan coba lagi
+        throw err;
       });
     }
     return dbPromise;
@@ -1119,6 +1134,5 @@ $('btnDownloadApp').addEventListener('click', async () => {
   window.addEventListener('offline', () => setStatus('📴 Mode offline'));
 })();
 </script>
-
-
-</body></html>
+</body>
+</html>
