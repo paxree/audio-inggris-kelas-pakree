@@ -44,18 +44,29 @@
   .btn-download-voice:disabled { opacity:.55; }
   .progress-outer { height:8px; border-radius:999px; background:#e6e6ff; overflow:hidden; margin-top:8px; display:none; }
   .progress-inner { height:100%; width:0%; background:#6C5CE7; transition:width .2s; }
-  .chips { max-height:170px; overflow:auto; border-radius:12px; background:#fafafa; border:1px solid #dfe6e9; padding:8px;
-           display:flex; flex-wrap:wrap; gap:6px; }
-  .chip { display:inline-flex; flex-direction:column; padding:6px 10px; border-radius:999px; font-size:11px; font-weight:800;
-          border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; }
-  .chip.active { background:#6C5CE7; color:#fff; border-color:#6C5CE7; transform:scale(1.08); z-index:1; box-shadow:0 3px 8px rgba(0,0,0,.15); }
+  .chips { max-height:220px; overflow:auto; border-radius:12px; background:#fafafa; border:1px solid #dfe6e9; padding:10px;
+           display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { display:inline-flex; flex-direction:column; align-items:center; padding:8px 12px; border-radius:14px;
+          border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; min-width:52px; }
+  .chip .w-en { font-size:16px; font-weight:800; line-height:1.2; }
+  .chip .w-phon { font-size:12px; font-style:italic; font-weight:600; color:#6C5CE7; line-height:1.3; }
+  .chip .w-id { font-size:11px; font-weight:600; color:#636e72; line-height:1.3; }
+  .chip.active { background:#6C5CE7; color:#fff; transform:scale(1.18); z-index:2; box-shadow:0 4px 12px rgba(0,0,0,.2); }
+  .chip.active .w-en { font-size:19px; }
+  .chip.active .w-phon { color:#FFE8B8; }
+  .chip.active .w-id { color:#E8E4FF; }
   .no-sound { outline:3px solid #FF7675 !important; outline-offset:1px; }
-  .chip small { font-size:9px; font-weight:700; opacity:.75; }
-  .sentences { display:flex; flex-direction:column; gap:8px; max-height:160px; overflow:auto; margin-top:8px; }
-  .sentence { border-radius:12px; padding:9px 10px; border:2px solid #dfe6e9; background:#fff; transition:.15s; }
-  .sentence.active { background:#00B894; border-color:#00B894; color:#fff; transform:scale(1.01); box-shadow:0 3px 8px rgba(0,0,0,.15); }
-  .sentence .en { font-size:12px; font-weight:700; line-height:1.4; }
-  .sentence .id { font-size:11px; margin-top:3px; opacity:.85; }
+  .sentences { display:flex; flex-direction:column; gap:10px; max-height:260px; overflow:auto; margin-top:8px; }
+  .sentence { border-radius:12px; padding:10px 12px; border:2px solid #dfe6e9; background:#fff; transition:.15s; }
+  .sentence.active { background:#f0fff9; border-color:#00B894; box-shadow:0 3px 8px rgba(0,0,0,.1); }
+  .sentence .en { font-size:14px; font-weight:800; line-height:1.4; color:#2d3436; }
+  .sentence.active .en { color:#00B894; }
+  .sentence .id { font-size:12px; margin-top:4px; color:#636e72; font-style:italic; }
+  .sentence .word-breakdown { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; padding-top:8px; border-top:1px dashed #dfe6e9; }
+  .sentence .wb-item { display:flex; flex-direction:column; align-items:center; min-width:36px; }
+  .sentence .wb-en { font-size:12px; font-weight:800; color:#2d3436; }
+  .sentence .wb-phon { font-size:10px; font-style:italic; color:#6C5CE7; }
+  .sentence .wb-id { font-size:10px; color:#636e72; }
   .translation-box { margin-top:10px; min-height:54px; border-radius:12px; background:#E8FFF3; border:1px solid #00B894; padding:10px; }
   .translation-box .label { font-size:10px; font-weight:800; color:#00B894; letter-spacing:.5px; margin-bottom:4px; }
   .translation-box .value { font-size:14px; font-weight:800; color:#2d3436; }
@@ -95,6 +106,9 @@
   <header>
     <h1 class="font-baloo font-extrabold">AUDIO INGGRIS<br>Kelas Pakree</h1>
     <div class="badge">MI SAFINATUL HUDA SOWAN KIDUL</div>
+    <div style="text-align:center;margin-top:4px">
+      <button id="btnToggleTeacherMode" style="background:none;border:none;color:#b2bec3;font-size:10px;text-decoration:underline;padding:4px">⚙️ Mode Guru</button>
+    </div>
     <div class="badge" id="readyBadge" style="display:none;margin-top:6px;background:#0984E3">🔊 SUARA SUDAH SIAP - TINGGAL PUTAR</div>
   </header>
 
@@ -413,6 +427,62 @@ async function fetchRemoteAudio(key) {
 }
 
 // ---------------------------------------------------------------------
+// EJAAN PELAFALAN (transliterasi fonetis) - dari CMU Pronouncing
+// Dictionary (kamus baku ±134.000 kata Inggris), diubah jadi ejaan gaya
+// Indonesia lewat PEMETAAN TETAP (bukan AI menebak). Kalau kata tidak ada
+// di kamus, TIDAK ditebak - dikosongkan saja (guru bisa isi manual nanti).
+// ---------------------------------------------------------------------
+const ARPABET_TO_ID = {
+  AA: 'a', AE: 'e', AH: 'a', AO: 'o', AW: 'au', AY: 'ai',
+  B: 'b', CH: 'c', D: 'd', DH: 'd', EH: 'e', ER: 'er', EY: 'ei',
+  F: 'f', G: 'g', HH: 'h', IH: 'i', IY: 'i', JH: 'j', K: 'k',
+  L: 'l', M: 'm', N: 'n', NG: 'ng', OW: 'ou', OY: 'oi', P: 'p',
+  R: 'r', S: 's', SH: 'sy', T: 't', TH: 'th', UH: 'u', UW: 'u',
+  V: 'v', W: 'w', Y: 'y', Z: 'z', ZH: 'zy',
+};
+let cmuDict = null;
+let cmuDictLoading = null;
+async function loadCmuDict() {
+  if (cmuDict) return cmuDict;
+  if (cmuDictLoading) return cmuDictLoading;
+  cmuDictLoading = (async () => {
+    const dict = new Map();
+    try {
+      const res = await fetch('https://cdn.jsdelivr.net/gh/Alexir/CMUdict@master/cmudict-0.7b');
+      const text = await res.text();
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (!line || line.startsWith(';;;')) continue;
+        const sep = line.indexOf('  ');
+        if (sep === -1) continue;
+        const rawWord = line.slice(0, sep);
+        if (rawWord.includes('(')) continue; // lewati varian pengucapan ke-2/3, pakai yang utama saja
+        const phonemesStr = line.slice(sep + 2).trim();
+        dict.set(rawWord.toLowerCase(), phonemesStr.split(' '));
+      }
+    } catch (err) {
+      console.warn('Gagal memuat kamus fonetik (butuh internet sekali):', err);
+    }
+    cmuDict = dict;
+    return dict;
+  })();
+  return cmuDictLoading;
+}
+function phonemesToSpelling(phonemes) {
+  return phonemes.map((p) => ARPABET_TO_ID[p.replace(/[0-9]/g, '')] || '').join('');
+}
+const phoneticMemory = new Map();
+async function getPhoneticSpelling(word) {
+  const key = word.toLowerCase();
+  if (phoneticMemory.has(key)) return phoneticMemory.get(key);
+  const dict = await loadCmuDict();
+  const entry = dict.get(key);
+  const spelling = entry ? phonemesToSpelling(entry) : '';
+  phoneticMemory.set(key, spelling);
+  return spelling;
+}
+
+// ---------------------------------------------------------------------
 // TERJEMAHAN TEKS (bukan audio) - untuk menampilkan & mengucapkan arti
 // ---------------------------------------------------------------------
 const textTranslationMemory = new Map();
@@ -645,15 +715,26 @@ function renderPreview() {
 
   $('wordChips').innerHTML = state.words.map((w, i) => `
     <span class="chip" data-widx="${i}">
-      <span>${escapeHtml(w.original)}</span>
-      <small data-wtrans="${i}">${SKIP_WORDS.has(w.lower) ? '—' : '···'}</small>
+      <span class="w-en">${escapeHtml(w.original)}</span>
+      <span class="w-phon" data-wphon="${i}">${SKIP_WORDS.has(w.lower) ? '' : '···'}</span>
+      <span class="w-id" data-wtrans="${i}">${SKIP_WORDS.has(w.lower) ? '—' : '···'}</span>
     </span>`).join('');
 
-  $('sentenceList').innerHTML = state.sentences.map((s, i) => `
+  $('sentenceList').innerHTML = state.sentences.map((s, i) => {
+    const sWords = parseWords(s);
+    const breakdown = sWords.map((sw) => `
+      <span class="wb-item">
+        <span class="wb-en">${escapeHtml(sw.original)}</span>
+        <span class="wb-phon" data-swphon="${i}|${sw.lower}">${SKIP_WORDS.has(sw.lower) ? '' : '···'}</span>
+        <span class="wb-id" data-swtrans="${i}|${sw.lower}">${SKIP_WORDS.has(sw.lower) ? '—' : '···'}</span>
+      </span>`).join('');
+    return `
     <div class="sentence" data-sidx="${i}">
       <div class="en">${escapeHtml(s)}</div>
       <div class="id" data-strans="${i}">···</div>
-    </div>`).join('');
+      <div class="word-breakdown">${breakdown}</div>
+    </div>`;
+  }).join('');
 
   prefetchPreviewTranslations();
 }
@@ -665,10 +746,23 @@ async function prefetchPreviewTranslations() {
   for (const w of uniqueWords) {
     if (myToken !== prefetchToken) return;
     const tr = await translateText(w);
+    const phon = await getPhoneticSpelling(w);
     if (myToken !== prefetchToken) return;
     document.querySelectorAll(`[data-wtrans]`).forEach((el) => {
       const idx = Number(el.dataset.wtrans);
       if (state.words[idx] && state.words[idx].lower === w) el.textContent = tr || '?';
+    });
+    document.querySelectorAll(`[data-wphon]`).forEach((el) => {
+      const idx = Number(el.dataset.wphon);
+      if (state.words[idx] && state.words[idx].lower === w) el.textContent = phon || '';
+    });
+    document.querySelectorAll(`[data-swtrans]`).forEach((el) => {
+      const [, ww] = el.dataset.swtrans.split('|');
+      if (ww === w) el.textContent = tr || '?';
+    });
+    document.querySelectorAll(`[data-swphon]`).forEach((el) => {
+      const [, ww] = el.dataset.swphon.split('|');
+      if (ww === w) el.textContent = phon || '';
     });
   }
   for (let i = 0; i < state.sentences.length; i++) {
@@ -1161,7 +1255,20 @@ $('btnDownloadApp').addEventListener('click', async () => {
 // ---------------------------------------------------------------------
 // INISIALISASI
 // ---------------------------------------------------------------------
+function applyTeacherMode() {
+  const isTeacher = localStorage.getItem('teacherMode') === '1';
+  $('engineBoxMesinSuara').style.display = isTeacher ? 'block' : 'none';
+  $('engineBoxKhususGuru').style.display = isTeacher ? 'block' : 'none';
+  $('btnToggleTeacherMode').textContent = isTeacher ? '⚙️ Mode Anak (sembunyikan kontrol guru)' : '⚙️ Mode Guru';
+}
+$('btnToggleTeacherMode').addEventListener('click', () => {
+  const isTeacher = localStorage.getItem('teacherMode') === '1';
+  localStorage.setItem('teacherMode', isTeacher ? '0' : '1');
+  applyTeacherMode();
+});
+
 (function init() {
+  applyTeacherMode();
   renderPreview();
   renderLessonGallery();
   if (window.puter?.ai?.txt2speech) {
