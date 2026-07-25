@@ -44,14 +44,14 @@
   .btn-download-voice:disabled { opacity:.55; }
   .progress-outer { height:8px; border-radius:999px; background:#e6e6ff; overflow:hidden; margin-top:8px; display:none; }
   .progress-inner { height:100%; width:0%; background:#6C5CE7; transition:width .2s; }
-  .chips { max-height:220px; overflow:auto; border-radius:12px; background:#fafafa; border:1px solid #dfe6e9; padding:10px;
-           display:flex; flex-wrap:wrap; gap:8px; }
+  .chips { max-height:220px; overflow:auto; border-radius:12px; background:#fafafa; border:1px solid #dfe6e9; padding:10px 10px 26px;
+           display:flex; flex-wrap:wrap; gap:8px 8px; row-gap:22px; }
   .chip { display:inline-flex; flex-direction:column; align-items:center; padding:8px 12px; border-radius:14px;
           border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; min-width:52px; }
   .chip .w-en { font-size:16px; font-weight:800; line-height:1.2; }
   .chip .w-phon { font-size:12px; font-style:normal; font-weight:700; color:#6C5CE7; line-height:1.3; }
   .chip .w-id { font-size:11px; font-weight:600; color:#636e72; line-height:1.3; }
-  .chip.active { background:#6C5CE7; color:#fff; transform:scale(1.18); z-index:2; box-shadow:0 4px 12px rgba(0,0,0,.2); }
+  .chip.active { background:#6C5CE7; color:#fff; transform:scale(1.12); z-index:2; box-shadow:0 4px 12px rgba(0,0,0,.2); }
   .chip.active .w-en { font-size:19px; }
   .chip.active .w-phon { color:#FFE8B8; }
   .chip.active .w-id { color:#E8E4FF; }
@@ -97,18 +97,15 @@
                   padding:4px 10px; border-radius:999px; display:inline-block; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .status-wrap { text-align:center; }
   .btn-app { width:100%; height:46px; border-radius:999px; background:#2d3436; color:#fff; font-weight:800; font-size:13px; }
-  .credit { font-size:11px; color:#888; text-align:center; margin-top:8px; font-style:italic; }
+  .credit { font-size:11px; color:#888; text-align:center; margin-top:8px; font-style:normal; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <header>
+  <header style="text-align:center">
     <h1 class="font-baloo font-extrabold">AUDIO INGGRIS<br>Kelas Pakree</h1>
     <div class="badge">MI SAFINATUL HUDA SOWAN KIDUL</div>
-    <div style="text-align:center;margin-top:4px">
-      <button id="btnToggleTeacherMode" style="background:none;border:none;color:#b2bec3;font-size:10px;text-decoration:underline;padding:4px">⚙️ Mode Guru</button>
-    </div>
     <div class="badge" id="readyBadge" style="display:none;margin-top:6px;background:#0984E3">🔊 SUARA SUDAH SIAP - TINGGAL PUTAR</div>
   </header>
 
@@ -231,7 +228,10 @@
 
   <div class="card" style="text-align:center">
     <button class="btn-app" id="btnDownloadApp">⬇️ DOWNLOAD APLIKASI</button>
-    <div class="credit">Built by Masyuri Pakree — mesin suara: Puter.js (neural, online) + cache offline</div>
+    <div style="text-align:center;margin-top:8px">
+      <button id="btnToggleTeacherMode" style="background:none;border:none;color:#b2bec3;font-size:10px;text-decoration:underline;padding:4px">⚙️ Mode Guru</button>
+    </div>
+    <div class="credit">Dikembangkan oleh Masyuri Pakree, dengan teknologi suara neural Puter.js dan dukungan cache offline.</div>
   </div>
 
 </div>
@@ -510,11 +510,17 @@ function phonemesToSpelling(phonemes) {
   return syllables.map((syl) => syl.map(phonemeUnitSpelling).join('')).join('-');
 }
 const phoneticMemory = new Map();
+// Beberapa kata fungsi sangat umum terdaftar di kamus dengan pengucapan
+// tereduksi (santai/nyambung), bukan bentuk penuh yang cocok untuk
+// mengajarkan pelafalan yang jelas ke anak. Override manual, tetap
+// berbasis aturan (bukan tebakan AI) - daftar tetap & bisa ditambah.
+const PHONETIC_OVERRIDES = {
+  and: ['AE1', 'N', 'D'],
+};
 async function getPhoneticSpelling(word) {
   const key = word.toLowerCase();
   if (phoneticMemory.has(key)) return phoneticMemory.get(key);
-  const dict = await loadCmuDict();
-  const entry = dict.get(key);
+  const entry = PHONETIC_OVERRIDES[key] || (await loadCmuDict()).get(key);
   const spelling = entry ? phonemesToSpelling(entry) : '';
   phoneticMemory.set(key, spelling);
   return spelling;
@@ -754,7 +760,7 @@ function renderPreview() {
   $('wordChips').innerHTML = state.words.map((w, i) => `
     <span class="chip" data-widx="${i}">
       <span class="w-en">${escapeHtml(w.original)}</span>
-      <span class="w-phon" data-wphon="${i}">${SKIP_WORDS.has(w.lower) ? '' : '···'}</span>
+      <span class="w-phon" data-wphon="${i}">···</span>
       <span class="w-id" data-wtrans="${i}">${SKIP_WORDS.has(w.lower) ? '—' : '···'}</span>
     </span>`).join('');
 
@@ -763,7 +769,7 @@ function renderPreview() {
     const breakdown = sWords.map((sw) => `
       <span class="wb-item">
         <span class="wb-en">${escapeHtml(sw.original)}</span>
-        <span class="wb-phon" data-swphon="${i}|${sw.lower}">${SKIP_WORDS.has(sw.lower) ? '' : '···'}</span>
+        <span class="wb-phon" data-swphon="${i}|${sw.lower}">···</span>
         <span class="wb-id" data-swtrans="${i}|${sw.lower}">${SKIP_WORDS.has(sw.lower) ? '—' : '···'}</span>
       </span>`).join('');
     return `
@@ -780,23 +786,25 @@ function renderPreview() {
 let prefetchToken = 0;
 async function prefetchPreviewTranslations() {
   const myToken = ++prefetchToken;
-  const uniqueWords = [...new Set(state.words.map((w) => w.lower).filter((w) => !SKIP_WORDS.has(w)))];
-  for (const w of uniqueWords) {
+  const allUniqueWords = [...new Set(state.words.map((w) => w.lower))];
+  for (const w of allUniqueWords) {
     if (myToken !== prefetchToken) return;
-    const tr = await translateText(w);
-    const phon = await getPhoneticSpelling(w);
+    const tr = SKIP_WORDS.has(w) ? '' : await translateText(w);
+    const phon = await getPhoneticSpelling(w); // fonetik tetap diambil untuk SEMUA kata, termasuk a/the/an
     if (myToken !== prefetchToken) return;
-    document.querySelectorAll(`[data-wtrans]`).forEach((el) => {
-      const idx = Number(el.dataset.wtrans);
-      if (state.words[idx] && state.words[idx].lower === w) el.textContent = tr || '?';
-    });
+    if (!SKIP_WORDS.has(w)) {
+      document.querySelectorAll(`[data-wtrans]`).forEach((el) => {
+        const idx = Number(el.dataset.wtrans);
+        if (state.words[idx] && state.words[idx].lower === w) el.textContent = tr || '?';
+      });
+      document.querySelectorAll(`[data-swtrans]`).forEach((el) => {
+        const [, ww] = el.dataset.swtrans.split('|');
+        if (ww === w) el.textContent = tr || '?';
+      });
+    }
     document.querySelectorAll(`[data-wphon]`).forEach((el) => {
       const idx = Number(el.dataset.wphon);
       if (state.words[idx] && state.words[idx].lower === w) el.textContent = phon ? `[${phon}]` : '';
-    });
-    document.querySelectorAll(`[data-swtrans]`).forEach((el) => {
-      const [, ww] = el.dataset.swtrans.split('|');
-      if (ww === w) el.textContent = tr || '?';
     });
     document.querySelectorAll(`[data-swphon]`).forEach((el) => {
       const [, ww] = el.dataset.swphon.split('|');
@@ -816,7 +824,7 @@ function highlightWord(idx) {
   document.querySelectorAll('.chip').forEach((el) => el.classList.remove('active'));
   if (idx !== null) {
     const el = document.querySelector(`[data-widx="${idx}"]`);
-    if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); }
+    if (el) { el.classList.add('active'); el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' }); }
   }
 }
 function highlightSentence(idx) {
