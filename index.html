@@ -480,55 +480,11 @@ async function synthesizeWithPuter(text, lang) {
   return await window.puter.ai.txt2speech(synthText, opts); // -> HTMLAudioElement
 }
 
-// ---------------------------------------------------------------------
-// VERSI PELAN: diolah dari audio NORMAL yang sudah pasti benar isinya
-// (bukan minta AI membuat ulang) - dikerjakan sekali di laptop guru lewat
-// Web Audio API bawaan browser, bukan real-time di HP anak. Nada suara
-// ikut turun sedikit (seperti kaset diputar pelan), tapi hasilnya bersih
-// & konsisten - tidak akan pernah "pecah/kotor" seperti regang real-time
-// di HP murah, dan ISINYA DIJAMIN SAMA karena berasal dari audio yang
-// sama, bukan sintesis AI baru yang berisiko salah.
-function audioBufferToWavBlob(buffer) {
-  const numCh = buffer.numberOfChannels;
-  const length = buffer.length * numCh * 2 + 44;
-  const arrBuf = new ArrayBuffer(length);
-  const view = new DataView(arrBuf);
-  const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
-  writeStr(0, 'RIFF'); view.setUint32(4, 36 + buffer.length * numCh * 2, true);
-  writeStr(8, 'WAVE'); writeStr(12, 'fmt ');
-  view.setUint32(16, 16, true); view.setUint16(20, 1, true);
-  view.setUint16(22, numCh, true); view.setUint32(24, buffer.sampleRate, true);
-  view.setUint32(28, buffer.sampleRate * numCh * 2, true); view.setUint16(32, numCh * 2, true);
-  view.setUint16(34, 16, true); writeStr(36, 'data'); view.setUint32(40, buffer.length * numCh * 2, true);
-  let offset = 44;
-  const chans = [];
-  for (let c = 0; c < numCh; c++) chans.push(buffer.getChannelData(c));
-  for (let i = 0; i < buffer.length; i++) {
-    for (let c = 0; c < numCh; c++) {
-      const sample = Math.max(-1, Math.min(1, chans[c][i]));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-      offset += 2;
-    }
-  }
-  return new Blob([arrBuf], { type: 'audio/wav' });
-}
-
-async function renderSlowVariant(normalBlob, rate) {
-  const arrayBuffer = await normalBlob.arrayBuffer();
-  const AC = window.AudioContext || window.webkitAudioContext;
-  const tempCtx = new AC();
-  const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer);
-  await tempCtx.close();
-  const outLength = Math.ceil(audioBuffer.length / rate);
-  const offlineCtx = new OfflineAudioContext(audioBuffer.numberOfChannels, outLength, audioBuffer.sampleRate);
-  const source = offlineCtx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.playbackRate.value = rate;
-  source.connect(offlineCtx.destination);
-  source.start(0);
-  const rendered = await offlineCtx.startRendering();
-  return audioBufferToWavBlob(rendered);
-}
+// Catatan: pernah dicoba mengolah ulang audio secara lokal untuk versi
+// pelan (menjaga isi selalu benar), tapi hasilnya nadanya turun drastis &
+// artikulasi tidak jelas. Dikembalikan ke playbackRate bawaan browser -
+// nada suara tetap alami, isinya tetap dijamin benar (audio yang sama,
+// cuma diputar lebih pelan saat itu juga).
 
 let onlineFailStreak = 0;
 const ONLINE_FAIL_LIMIT = 3;
@@ -573,9 +529,8 @@ const RATE_NORMAL = 1;
 const RATE_SLOW = 0.7;
 const RATE_VERY_SLOW = 0.5;
 
-function cacheKeyFor(text, lang, rate) {
-  const nativeSlow = lang === 'en' && rate < 0.999;
-  return nativeSlow ? `${lang}_${hashKey(text)}_r${Math.round(rate * 100)}` : `${lang}_${hashKey(text)}`;
+function cacheKeyFor(text, lang) {
+  return `${lang}_${hashKey(text)}`;
 }
 
 /**
@@ -584,20 +539,14 @@ function cacheKeyFor(text, lang, rate) {
  */
 async function speak(text, lang, rate, isStale) {
   if (!text || !text.trim() || (isStale && isStale())) return 'skip';
-  // Inggris lambat = disintesis ASLI pelan (jernih, lihat synthesizeWithPuter)
-  // jadi butuh kunci cache TERPISAH per kecepatan, dan TIDAK boleh diregangkan
-  // lagi saat diputar (sudah pas temponya). Indonesia & Inggris normal tetap
-  // seperti biasa (satu kunci, playbackRate diatur saat memutar).
-  const nativeSlow = lang === 'en' && rate < 0.999;
-  const cacheKey = cacheKeyFor(text, lang, rate);
-  const playRate = nativeSlow ? 1 : rate;
+  const cacheKey = cacheKeyFor(text, lang);
 
   // 1) Sudah tersimpan di HP ini (IndexedDB)? langsung pakai, paling cepat.
   const cached = await AudioCache.get(cacheKey);
   if (isStale && isStale()) return 'skip';
   if (cached) {
     const url = URL.createObjectURL(cached);
-    await playAudioElement(new Audio(url), playRate, isStale);
+    await playAudioElement(new Audio(url), rate, isStale);
     URL.revokeObjectURL(url);
     return 'cache';
   }
@@ -611,7 +560,7 @@ async function speak(text, lang, rate, isStale) {
     if (remoteBlob) {
       AudioCache.set(cacheKey, remoteBlob);
       const url = URL.createObjectURL(remoteBlob);
-      await playAudioElement(new Audio(url), playRate, isStale);
+      await playAudioElement(new Audio(url), rate, isStale);
       URL.revokeObjectURL(url);
       return 'file';
     }
@@ -619,31 +568,12 @@ async function speak(text, lang, rate, isStale) {
 
   if (navigator.onLine && onlineFailStreak < ONLINE_FAIL_LIMIT) {
     try {
-      let finalBlob;
-      if (nativeSlow) {
-        // Versi pelan belum ada - perlu versi normal dulu (cache/server/Puter),
-        // baru diolah jadi pelan secara lokal (bukan minta Puter versi pelan).
-        const normalKey = cacheKeyFor(text, lang, 1);
-        let normalBlob = await AudioCache.get(normalKey);
-        if (!normalBlob && navigator.onLine) normalBlob = await fetchRemoteAudio(normalKey);
-        if (!normalBlob) {
-          const normalAudio = await synthesizeWithPuter(text, lang);
-          normalBlob = await fetch(normalAudio.src).then((r) => r.blob());
-          AudioCache.set(normalKey, normalBlob);
-        }
-        if (isStale && isStale()) return 'skip';
-        finalBlob = await renderSlowVariant(normalBlob, rate);
-      } else {
-        const audio = await synthesizeWithPuter(text, lang);
-        if (isStale && isStale()) return 'skip';
-        finalBlob = await fetch(audio.src).then((r) => r.blob());
-      }
-      const url = URL.createObjectURL(finalBlob);
-      const ok = await playAudioElement(new Audio(url), playRate, isStale);
-      URL.revokeObjectURL(url);
+      const audio = await synthesizeWithPuter(text, lang);
+      if (isStale && isStale()) return 'skip';
+      const ok = await playAudioElement(audio, rate, isStale);
       if (!ok) throw new Error('Audio gagal diputar (onerror/timeout)');
       onlineFailStreak = 0;
-      AudioCache.set(cacheKey, finalBlob);
+      fetch(audio.src).then((r) => r.blob()).then((blob) => AudioCache.set(cacheKey, blob)).catch(() => {});
       return 'online';
     } catch (err) {
       console.warn('Suara online gagal:', err);
@@ -908,13 +838,8 @@ function sourceLabel(s) {
 // ---------------------------------------------------------------------
 // KHUSUS GURU: BUAT SEMUA SUARA SEKALIGUS
 // ---------------------------------------------------------------------
-async function generateAudioForBundle(text, lang, rate = 1, normalBlobForSlow = null) {
+async function generateAudioForBundle(text, lang) {
   try {
-    if (rate < 0.999 && normalBlobForSlow) {
-      // Versi pelan: olah dari audio normal yang SUDAH BENAR, bukan minta
-      // AI membuat ulang - menjamin isinya tetap sama & hemat jatah Puter.
-      return await withTimeout(renderSlowVariant(normalBlobForSlow, rate), 15000, 'olah-pelan');
-    }
     const audio = await withTimeout(synthesizeWithPuter(text, lang), 15000, 'sintesis');
     const res = await withTimeout(fetch(audio.src), 15000, 'ambil-bytes');
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -940,91 +865,68 @@ async function generateAllAudio() {
   $('genAllNote').textContent = 'Menyiapkan daftar kata & kalimat...';
 
   const items = new Map();
-  const addItem = (text, lang, rate) => {
+  const addItem = (text, lang) => {
     if (!text || !text.trim()) return;
-    const key = cacheKeyFor(text, lang, rate);
-    if (!items.has(key)) items.set(key, { text, lang, rate });
-  };
-  // Inggris: 3 kecepatan (normal, pelan, amat pelan) - semuanya perlu
-  // disiapkan di muka karena konsep aplikasi ini untuk pemula/anak yang
-  // butuh keduanya (pelan = artikulasi, normal = latihan dengar).
-  // Indonesia: 1 kecepatan saja (terjemahan selalu dibaca normal).
-  const addEnglishAllSpeeds = (text) => {
-    addItem(text, 'en', RATE_NORMAL);
-    addItem(text, 'en', RATE_SLOW);
-    addItem(text, 'en', RATE_VERY_SLOW);
+    const key = cacheKeyFor(text, lang);
+    if (!items.has(key)) items.set(key, { text, lang });
   };
   const totalPrep = state.words.length + state.sentences.length;
   let prepDone = 0;
   for (const w of state.words) {
-    addEnglishAllSpeeds(w.original);
+    addItem(w.original, 'en');
     if (!SKIP_WORDS.has(w.lower)) {
       const tr = await translateText(w.lower);
-      if (tr) addItem(tr, 'id', RATE_NORMAL);
+      if (tr) addItem(tr, 'id');
     }
     prepDone++;
     $('genAllNote').textContent = `Menerjemahkan kata & kalimat (${prepDone}/${totalPrep})...`;
   }
   for (const s of state.sentences) {
-    addEnglishAllSpeeds(s);
+    addItem(s, 'en');
     const tr = await translateText(s);
-    if (tr) addItem(tr, 'id', RATE_NORMAL);
+    if (tr) addItem(tr, 'id');
     prepDone++;
     $('genAllNote').textContent = `Menerjemahkan kata & kalimat (${prepDone}/${totalPrep})...`;
   }
 
-  // Kelompokkan per (text, lang) supaya versi NORMAL selalu diproses dulu,
-  // baru versi pelan & amat pelan diturunkan darinya (bukan minta Puter lagi).
-  const groups = new Map(); // "lang|text" -> { text, lang, rates: Set }
-  for (const { text, lang, rate } of items.values()) {
-    const gKey = `${lang}|${text}`;
-    if (!groups.has(gKey)) groups.set(gKey, { text, lang, rates: new Set() });
-    groups.get(gKey).rates.add(rate);
-  }
-
   const list = [...items.values()];
   let done = 0, failed = 0, skippedExisting = 0;
-  for (const { text, lang, rates } of groups.values()) {
-    const sortedRates = [...rates].sort((a, b) => b - a); // normal (1) dulu, baru yang lebih pelan
-    let normalBlob = null;
-    for (const rate of sortedRates) {
-      const key = cacheKeyFor(text, lang, rate);
-      const rateLabel = rate === RATE_NORMAL ? 'normal' : rate === RATE_SLOW ? 'pelan' : 'amat pelan';
+  for (const { text, lang } of list) {
+    const key = cacheKeyFor(text, lang);
 
-      // Sudah ada sebagai file audio/ di server (dari sesi sebelumnya)?
-      const remote = await fetchRemoteAudio(key);
-      if (remote) {
-        AudioCache.set(key, remote);
-        if (rate === RATE_NORMAL) normalBlob = remote;
-        skippedExisting++; done++;
-        $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
-        continue;
-      }
-      const existingLocal = await AudioCache.get(key);
-      if (existingLocal) {
-        if (rate === RATE_NORMAL) normalBlob = existingLocal;
-        skippedExisting++; done++;
-        $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
-        continue;
-      }
-
-      $('genAllNote').textContent = `Memproses ${done + 1}/${list.length}: "${text.slice(0, 40)}" (${lang}, ${rateLabel})...`;
-      try {
-        await withTimeout((async () => {
-          const blob = await generateAudioForBundle(text, lang, rate, normalBlob);
-          if (blob) {
-            await AudioCache.set(key, blob);
-            if (rate === RATE_NORMAL) normalBlob = blob;
-          } else failed++;
-        })(), 20000, 'item-keseluruhan');
-      } catch (err) {
-        failed++;
-        console.warn('Item gagal/timeout (pengaman luar):', text, err);
-      }
+    // Sudah ada sebagai file audio/ di server (dari sesi sebelumnya yang
+    // sudah diunggah)? JANGAN dibuat ulang - ini yang menjaga "kekayaan
+    // suara" tidak pernah hilang/dibuang percuma walau terus bertambah.
+    const remote = await fetchRemoteAudio(key);
+    if (remote) {
+      AudioCache.set(key, remote);
+      skippedExisting++;
       done++;
       $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
-      await sleep(30);
+      continue;
     }
+    const existingLocal = await AudioCache.get(key);
+    if (existingLocal) {
+      skippedExisting++;
+      done++;
+      $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
+      continue;
+    }
+
+    $('genAllNote').textContent = `Memproses ${done + 1}/${list.length}: "${text.slice(0, 40)}" (${lang})...`;
+    try {
+      await withTimeout((async () => {
+        const blob = await generateAudioForBundle(text, lang);
+        if (blob) await AudioCache.set(key, blob);
+        else failed++;
+      })(), 20000, 'item-keseluruhan');
+    } catch (err) {
+      failed++;
+      console.warn('Item gagal/timeout (pengaman luar):', text, err);
+    }
+    done++;
+    $('genAllProgressInner').style.width = Math.round((done / list.length) * 100) + '%';
+    await sleep(30);
   }
 
   const skipNote = skippedExisting > 0 ? ` (${skippedExisting} sudah ada dari sebelumnya, dilewati - tidak dibuat ulang)` : '';
