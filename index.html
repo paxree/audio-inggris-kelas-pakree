@@ -563,14 +563,20 @@ async function translateText(text) {
 // PARSING TEKS -> KATA & KALIMAT
 // ---------------------------------------------------------------------
 function parseWords(text) {
-  const matches = text.match(/[A-Za-z']+/g) || [];
+  // Selain kata, tangkap juga angka & notasi jam/desimal (06:30, 06.30,
+  // 59463, 3.14) supaya muncul di Pratinjau Kata dan bisa dibacakan.
+  const matches = text.match(/[A-Za-z']+|\d+(?:[:.,]\d+)+|\d+/g) || [];
   return matches.map((w) => ({ original: w, lower: w.toLowerCase() }));
 }
 function parseSentences(text) {
   const trimmed = text.trim();
   if (!trimmed) return [];
-  const parts = trimmed.match(/[^.!?]+[.!?]*/g) || [trimmed];
-  return parts.map((p) => p.trim()).filter(Boolean);
+  // Titik yang TIDAK diikuti spasi/akhir teks (mis. notasi jam "06.30")
+  // bukan akhir kalimat - lindungi dulu dengan penanda sementara sebelum
+  // dipecah, supaya "06.30" tidak keliru terpecah jadi "06" dan "30".
+  const protectedText = trimmed.replace(/\.(?!\s|$)/g, '\u0000');
+  const parts = protectedText.match(/[^.!?]+[.!?]*/g) || [protectedText];
+  return parts.map((p) => p.trim().replace(/\u0000/g, '.')).filter(Boolean);
 }
 
 // ---------------------------------------------------------------------
