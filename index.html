@@ -49,7 +49,7 @@
   .chip { display:inline-flex; flex-direction:column; align-items:center; padding:8px 12px; border-radius:14px;
           border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; min-width:52px; }
   .chip .w-en { font-size:16px; font-weight:800; line-height:1.2; }
-  .chip .w-phon { font-size:12px; font-style:italic; font-weight:600; color:#6C5CE7; line-height:1.3; }
+  .chip .w-phon { font-size:12px; font-style:normal; font-weight:700; color:#6C5CE7; line-height:1.3; }
   .chip .w-id { font-size:11px; font-weight:600; color:#636e72; line-height:1.3; }
   .chip.active { background:#6C5CE7; color:#fff; transform:scale(1.18); z-index:2; box-shadow:0 4px 12px rgba(0,0,0,.2); }
   .chip.active .w-en { font-size:19px; }
@@ -65,7 +65,7 @@
   .sentence .word-breakdown { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; padding-top:8px; border-top:1px dashed #dfe6e9; }
   .sentence .wb-item { display:flex; flex-direction:column; align-items:center; min-width:36px; }
   .sentence .wb-en { font-size:12px; font-weight:800; color:#2d3436; }
-  .sentence .wb-phon { font-size:10px; font-style:italic; color:#6C5CE7; }
+  .sentence .wb-phon { font-size:10px; font-style:normal; font-weight:700; color:#6C5CE7; }
   .sentence .wb-id { font-size:10px; color:#636e72; }
   .translation-box { margin-top:10px; min-height:54px; border-radius:12px; background:#E8FFF3; border:1px solid #00B894; padding:10px; }
   .translation-box .label { font-size:10px; font-weight:800; color:#00B894; letter-spacing:.5px; margin-bottom:4px; }
@@ -433,13 +433,19 @@ async function fetchRemoteAudio(key) {
 // di kamus, TIDAK ditebak - dikosongkan saja (guru bisa isi manual nanti).
 // ---------------------------------------------------------------------
 const ARPABET_TO_ID = {
-  AA: 'a', AE: 'e', AH: 'a', AO: 'o', AW: 'au', AY: 'ai',
-  B: 'b', CH: 'c', D: 'd', DH: 'd', EH: 'e', ER: 'er', EY: 'ei',
-  F: 'f', G: 'g', HH: 'h', IH: 'i', IY: 'i', JH: 'j', K: 'k',
+  AA: 'a', AE: 'ae', AH: 'a', AW: 'au', AY: 'ai',
+  B: 'b', CH: 'c', D: 'd', DH: 'dh', EH: 'e', ER: 'er', EY: 'ei',
+  F: 'f', G: 'g', HH: 'h', IH: 'i', JH: 'j', K: 'k',
   L: 'l', M: 'm', N: 'n', NG: 'ng', OW: 'ou', OY: 'oi', P: 'p',
-  R: 'r', S: 's', SH: 'sy', T: 't', TH: 'th', UH: 'u', UW: 'u',
-  V: 'v', W: 'w', Y: 'y', Z: 'z', ZH: 'zy',
+  R: 'r', S: 's', SH: 'sy', T: 't', TH: 'th', UH: 'u',
+  V: 'v', W: 'w', Y: 'y', Z: 'z', ZH: 'zh',
 };
+// Vokal yang digandakan HANYA kalau suku katanya mendapat tekanan (stress
+// 1/2) - kalau tanpa tekanan (di ujung kata seperti "-ly", "-y") tetap
+// satu huruf, sesuai bunyi asli yang lebih pendek/tidak ditekankan.
+const LONG_VOWELS_STRESSED_DOUBLE = { IY: 'ii', UW: 'uu', AO: 'oo' };
+const LONG_VOWELS_UNSTRESSED_SINGLE = { IY: 'i', UW: 'u', AO: 'o' };
+const VOWEL_PHONEMES = new Set(['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'OY', 'UH', 'UW']);
 let cmuDict = null;
 let cmuDictLoading = null;
 async function loadCmuDict() {
@@ -468,8 +474,40 @@ async function loadCmuDict() {
   })();
   return cmuDictLoading;
 }
+function phonemeUnitSpelling(phoneme) {
+  const base = phoneme.replace(/[0-9]/g, '');
+  const stress = (phoneme.match(/[0-9]/) || [''])[0];
+  if (base === 'AH' && stress === '0') return 'ə'; // bunyi pepet (vokal tanpa tekanan)
+  if (LONG_VOWELS_STRESSED_DOUBLE[base]) {
+    return stress === '0' ? LONG_VOWELS_UNSTRESSED_SINGLE[base] : LONG_VOWELS_STRESSED_DOUBLE[base];
+  }
+  return ARPABET_TO_ID[base] || '';
+}
+// Memenggal deret fonem jadi suku kata: konsonan di antara dua vokal
+// dipindah ke suku kata BERIKUTNYA sebanyak mungkin (maks 1 konsonan),
+// sisanya (kalau ada 2+) tetap jadi penutup suku kata sebelumnya.
+// Contoh: before -> B IH0 F AO1 R -> "bi-for", morning -> M AO1 R N IH0 NG -> "mor-ning".
 function phonemesToSpelling(phonemes) {
-  return phonemes.map((p) => ARPABET_TO_ID[p.replace(/[0-9]/g, '')] || '').join('');
+  const vowelIdx = [];
+  phonemes.forEach((p, i) => { if (VOWEL_PHONEMES.has(p.replace(/[0-9]/g, ''))) vowelIdx.push(i); });
+  if (vowelIdx.length === 0) return phonemes.map(phonemeUnitSpelling).join('');
+
+  const syllables = [];
+  let prevBoundary = 0;
+  for (let v = 0; v < vowelIdx.length; v++) {
+    const vi = vowelIdx[v];
+    let end;
+    if (v === vowelIdx.length - 1) {
+      end = phonemes.length - 1; // suku kata terakhir menyerap semua konsonan penutup kata
+    } else {
+      const nextVi = vowelIdx[v + 1];
+      const gap = nextVi - vi - 1; // jumlah konsonan di antara dua vokal
+      end = gap <= 1 ? vi : nextVi - 2;
+    }
+    syllables.push(phonemes.slice(prevBoundary, end + 1));
+    prevBoundary = end + 1;
+  }
+  return syllables.map((syl) => syl.map(phonemeUnitSpelling).join('')).join('-');
 }
 const phoneticMemory = new Map();
 async function getPhoneticSpelling(word) {
@@ -754,7 +792,7 @@ async function prefetchPreviewTranslations() {
     });
     document.querySelectorAll(`[data-wphon]`).forEach((el) => {
       const idx = Number(el.dataset.wphon);
-      if (state.words[idx] && state.words[idx].lower === w) el.textContent = phon || '';
+      if (state.words[idx] && state.words[idx].lower === w) el.textContent = phon ? `[${phon}]` : '';
     });
     document.querySelectorAll(`[data-swtrans]`).forEach((el) => {
       const [, ww] = el.dataset.swtrans.split('|');
@@ -762,7 +800,7 @@ async function prefetchPreviewTranslations() {
     });
     document.querySelectorAll(`[data-swphon]`).forEach((el) => {
       const [, ww] = el.dataset.swphon.split('|');
-      if (ww === w) el.textContent = phon || '';
+      if (ww === w) el.textContent = phon ? `[${phon}]` : '';
     });
   }
   for (let i = 0; i < state.sentences.length; i++) {
