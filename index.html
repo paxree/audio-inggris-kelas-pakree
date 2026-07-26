@@ -1246,6 +1246,12 @@ $('btnDownloadApp').addEventListener('click', async () => {
         audioCount++;
       } catch (err) { console.warn('Lewati satu audio saat membuat paket:', err); }
     }
+    if (audioCount === 0) {
+      // Tidak ada suara baru untuk dimasukkan - tetap sertakan folder audio/
+      // (kosong, dengan file penanda) supaya strukturnya selalu konsisten
+      // setiap kali Download ditekan.
+      zipFiles['audio/.gitkeep'] = window.fflate.strToU8('');
+    }
     btn.textContent = '⏳ Menyiapkan paket unduhan...';
 
     // Kembalikan SEMUA kondisi UI sementara ke keadaan normal SEBELUM
