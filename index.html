@@ -47,6 +47,7 @@
   .chips { max-height:220px; overflow:auto; border-radius:12px; background:#fafafa; border:1px solid #dfe6e9; padding:10px 10px 26px;
            display:flex; flex-wrap:wrap; gap:8px 8px; row-gap:22px; }
   .chip { display:inline-flex; flex-direction:column; align-items:center; padding:8px 12px; border-radius:14px;
+          scroll-margin-bottom:150px; scroll-margin-top:16px;
           border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; min-width:52px; }
   .chip .w-en { font-size:16px; font-weight:800; line-height:1.2; }
   .chip .w-phon { font-size:12px; font-style:normal; font-weight:700; color:#6C5CE7; line-height:1.3; }
@@ -57,7 +58,8 @@
   .chip.active .w-id { color:#E8E4FF; }
   .no-sound { outline:3px solid #FF7675 !important; outline-offset:1px; }
   .sentences { display:flex; flex-direction:column; gap:14px; max-height:340px; overflow:auto; margin-top:8px; padding:14px 2px; }
-  .sentence { border-radius:12px; padding:10px 12px; border:2px solid #dfe6e9; background:#fff; transition:.15s; }
+  .sentence { border-radius:12px; padding:10px 12px; border:2px solid #dfe6e9; background:#fff; transition:.15s;
+              scroll-margin-bottom:150px; scroll-margin-top:16px; }
   .sentence.active { background:#f0fff9; border-color:#00B894; box-shadow:0 3px 8px rgba(0,0,0,.1); }
   .sentence .en { font-size:14px; font-weight:800; line-height:1.4; color:#2d3436; }
   .sentence.active .en { color:#00B894; }
@@ -67,7 +69,8 @@
   .sentence .wb-en { font-size:12px; font-weight:800; color:#2d3436; }
   .sentence .wb-phon { font-size:10px; font-style:normal; font-weight:700; color:#6C5CE7; }
   .sentence .wb-id { font-size:10px; color:#636e72; }
-  .translation-box { margin-top:10px; min-height:54px; border-radius:12px; background:#E8FFF3; border:1px solid #00B894; padding:10px; }
+  .translation-box { margin-top:10px; min-height:54px; border-radius:12px; background:#E8FFF3; border:1px solid #00B894; padding:10px;
+                      scroll-margin-bottom:150px; scroll-margin-top:16px; }
   .translation-box .label { font-size:10px; font-weight:800; color:#00B894; letter-spacing:.5px; margin-bottom:4px; }
   .translation-box .value { font-size:14px; font-weight:800; color:#2d3436; }
   .translation-box .muted { font-size:12px; color:#636e72; font-style:italic; }
@@ -636,7 +639,14 @@ function playAudioElement(audio, rate, isStale) {
     try { audio.playbackRate = rate; } catch {}
     audio.onended = () => finish(true);
     audio.onerror = () => finish(false);
-    audio.play().catch(() => finish(false));
+    // Jeda singkat sebelum benar-benar memutar - uji coba murah untuk
+    // memberi waktu "settle" ke mesin audio HP sebelum mulai, kalau-kalau
+    // perpindahan super cepat antar kata jadi salah satu penyebab
+    // gangguan/kotor yang polanya tidak konsisten.
+    setTimeout(() => {
+      if (isStale && isStale()) { finish(false); return; }
+      audio.play().catch(() => finish(false));
+    }, 120);
     setTimeout(() => finish(false), 12000); // jaga-jaga anti macet
   });
 }
