@@ -686,7 +686,13 @@ async function speak(text, lang, rate, isStale) {
     }
   }
 
-  if (navigator.onLine && onlineFailStreak < ONLINE_FAIL_LIMIT) {
+  // Jalur online (Puter) HANYA boleh dicoba dalam Mode Guru - siswa/orang
+  // tua tidak boleh pernah memicu Puter (bisa muncul pop-up login yang
+  // merepotkan). Kalau bukan Mode Guru dan suara belum ada di cache/server,
+  // langsung anggap tidak tersedia - tanggung jawab kelengkapan suara ada
+  // di guru lewat "Buat Semua Suara" sebelum dibagikan.
+  const isTeacherMode = localStorage.getItem('teacherMode') === '1';
+  if (isTeacherMode && navigator.onLine && onlineFailStreak < ONLINE_FAIL_LIMIT) {
     try {
       const audio = await synthesizeWithPuter(text, lang);
       if (isStale && isStale()) return 'skip';
@@ -843,7 +849,10 @@ function highlightSentence(idx) {
 function setTranslationDisplay(text, isLoading) {
   const box = $('translationValue');
   if (isLoading) { box.className = 'muted'; box.textContent = `Menerjemahkan "${text}"...`; }
-  else if (text) { box.className = 'value'; box.textContent = text; }
+  else if (text) {
+    box.className = 'value'; box.textContent = text;
+    box.closest('.translation-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
   else { box.className = 'muted'; box.textContent = 'Terjemahan akan muncul saat kata/kalimat dibacakan...'; }
 }
 function setStatus(text) { $('statusText').textContent = text; }
@@ -1317,6 +1326,7 @@ function applyTeacherMode() {
   const isTeacher = localStorage.getItem('teacherMode') === '1';
   $('engineBoxMesinSuara').style.display = isTeacher ? 'block' : 'none';
   $('engineBoxKhususGuru').style.display = isTeacher ? 'block' : 'none';
+  $('btnDownloadApp').style.display = isTeacher ? 'block' : 'none';
   $('btnToggleTeacherMode').textContent = isTeacher ? '⚙️ Mode Anak (sembunyikan kontrol guru)' : '⚙️ Mode Guru';
 }
 $('btnToggleTeacherMode').addEventListener('click', () => {
