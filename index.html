@@ -17,47 +17,50 @@
   @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@600;700;800&display=swap');
   * { box-sizing: border-box; font-family: 'Nunito', system-ui, sans-serif; }
   .font-baloo { font-family: 'Baloo 2', cursive; }
-  body { margin: 0; background: linear-gradient(180deg, #FFF9E6 0%, #E0F7FA 100%); min-height: 100vh; }
+  body { margin: 0; background: linear-gradient(180deg, #FBFBF3 0%, #E9F7EC 100%); min-height: 100vh; }
   .wrap { max-width: 480px; margin: 0 auto; padding: 16px 12px 24px; display: flex; flex-direction: column; gap: 14px; }
-  .card { background: #fff; border-radius: 20px; padding: 14px; box-shadow: 0 8px 24px rgba(108,92,231,.12), 0 2px 8px rgba(0,0,0,.06); }
-  h1 { font-size: 28px; line-height: 1.05; text-align: center; margin: 6px 0 2px; letter-spacing: -.3px;
-       background: linear-gradient(90deg,#6C5CE7,#0984E3); -webkit-background-clip: text; background-clip:text; -webkit-text-fill-color: transparent; }
-  .badge { align-self: center; background:#00B894; color:#fff; font-weight:800; letter-spacing:1px; font-size:12px;
+  .card { background: #fff; border-radius: 20px; padding: 14px; box-shadow: 0 8px 24px rgba(33,145,80,.12), 0 2px 8px rgba(0,0,0,.06); }
+  .header-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .header-titles { text-align:left; min-width:0; }
+  h1 { font-size: 24px; line-height: 1.08; text-align: left; margin: 0 0 6px; letter-spacing: -.3px;
+       background: linear-gradient(90deg,#219150,#0984E3); -webkit-background-clip: text; background-clip:text; -webkit-text-fill-color: transparent; }
+  .badge { align-self: flex-start; background:#00B894; color:#fff; font-weight:800; letter-spacing:1px; font-size:12px;
            padding: 6px 16px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+  .badge.badge-status { align-self:center; display:block; text-align:center; margin:10px auto 0; width:fit-content; }
   label.field-label { font-size:13px; font-weight:800; color:#636e72; letter-spacing:.3px; display:block; margin-bottom:6px; }
   textarea#inputText { width:100%; height:130px; border-radius:14px; border:2px solid #dfe6e9; outline:none;
            padding:10px; font-size:15px; line-height:1.5; resize:none; background:#fafafa; }
-  textarea#inputText:focus { border-color:#6C5CE7; background:#fff; }
+  textarea#inputText:focus { border-color:#219150; background:#fff; }
   button { font-family:inherit; cursor:pointer; border:none; }
   .btn-clear { width:100%; margin-top:10px; height:42px; border-radius:999px; background:#ffeaa7; color:#2d3436; font-weight:800; font-size:13px; }
   .btn-clear:active { transform: scale(.97); }
   .row-between { display:flex; justify-content:space-between; align-items:center; }
-  .pill { font-size:11px; font-weight:800; background:#f1f0ff; color:#6C5CE7; padding:4px 10px; border-radius:999px; }
+  .pill { font-size:11px; font-weight:800; background:#e9f9ee; color:#219150; padding:4px 10px; border-radius:999px; }
   input[type=range] { width:100%; margin-top:8px; -webkit-appearance:none; appearance:none; height:14px; border-radius:999px;
-           background: linear-gradient(90deg,#FDCB6E,#6C5CE7); outline:none; }
+           background: linear-gradient(90deg,#FDCB6E,#219150); outline:none; }
   input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:30px; height:30px; border-radius:50%; background:#fff;
-           border:3px solid #6C5CE7; box-shadow:0 3px 8px rgba(0,0,0,.2); cursor:pointer; }
-  input[type=range]::-moz-range-thumb { width:30px; height:30px; border-radius:50%; background:#fff; border:3px solid #6C5CE7; cursor:pointer; }
+           border:3px solid #219150; box-shadow:0 3px 8px rgba(0,0,0,.2); cursor:pointer; }
+  input[type=range]::-moz-range-thumb { width:30px; height:30px; border-radius:50%; background:#fff; border:3px solid #219150; cursor:pointer; }
   .voice-note { font-size:10px; color:#636e72; margin-top:4px; min-height:14px; }
-  .engine-box { margin-top:10px; border-radius:14px; background:#f8f9ff; border:1px dashed #a29bfe; padding:10px; }
-  .btn-download-voice { background:#6C5CE7; color:#fff; font-weight:800; font-size:12px; padding:8px 14px; border-radius:999px; }
+  .engine-box { margin-top:10px; border-radius:14px; background:#f2fbf4; border:1px dashed #8fd6a3; padding:10px; }
+  .btn-download-voice { background:#219150; color:#fff; font-weight:800; font-size:12px; padding:8px 14px; border-radius:999px; }
   .btn-download-voice:disabled { opacity:.55; }
-  .progress-outer { height:8px; border-radius:999px; background:#e6e6ff; overflow:hidden; margin-top:8px; display:none; }
-  .progress-inner { height:100%; width:0%; background:#6C5CE7; transition:width .2s; }
+  .progress-outer { height:8px; border-radius:999px; background:#dcf5e2; overflow:hidden; margin-top:8px; display:none; }
+  .progress-inner { height:100%; width:0%; background:#219150; transition:width .2s; }
   .chips { border-radius:12px; background:#fafafa; border:1px solid #dfe6e9; padding:10px 10px 26px;
            display:flex; flex-wrap:wrap; gap:8px 8px; row-gap:22px; }
   .chip { display:inline-flex; flex-direction:column; align-items:center; padding:14px 20px; border-radius:16px;
           scroll-margin-bottom:150px; scroll-margin-top:16px;
           border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; min-width:82px; }
   .chip .w-en { font-size:22px; font-weight:800; line-height:1.2; }
-  .chip .w-phon { font-size:15px; font-style:normal; font-weight:700; color:#6C5CE7; line-height:1.3; }
+  .chip .w-phon { font-size:15px; font-style:normal; font-weight:700; color:#219150; line-height:1.3; }
   .chip .w-id { font-size:13px; font-weight:600; color:#636e72; line-height:1.3; }
   .chip.active { background:#000; color:#fff; transform:scale(1.12); z-index:2; box-shadow:0 4px 12px rgba(0,0,0,.2); }
   #wordChips { flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; }
   #wordChips .chip { flex:0 0 auto; scroll-snap-align:center; }
   .chip.active .w-en { font-size:26px; }
   .chip.active .w-phon { color:#FFE8B8; }
-  .chip.active .w-id { color:#E8E4FF; }
+  .chip.active .w-id { color:#DFF7E3; }
   .no-sound { outline:3px solid #FF7675 !important; outline-offset:1px; }
   .sentences { display:flex; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x mandatory;
                -webkit-overflow-scrolling:touch; gap:14px; margin-top:8px; padding:14px 8px; }
@@ -67,19 +70,19 @@
   .sentence .en { font-size:16px; font-weight:800; line-height:1.35; color:#2d3436; }
   .sentence.active .en { color:#fff; font-size:18px; }
   .sentence .id { font-size:13px; margin-top:4px; color:#636e72; font-style:italic; }
-  .sentence.active .id { color:#E8E4FF; }
+  .sentence.active .id { color:#DFF7E3; }
   .sentence .word-breakdown { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; padding-top:6px; border-top:1px dashed #dfe6e9; }
   .sentence.active .word-breakdown { border-top-color:rgba(255,255,255,.4); }
   .sentence .wb-item { display:flex; flex-direction:column; align-items:center; min-width:42px; }
   .sentence .wb-en { font-size:13px; font-weight:800; color:#2d3436; }
   .sentence.active .wb-en { color:#fff; font-size:14px; }
-  .sentence .wb-phon { font-size:11px; font-style:normal; font-weight:700; color:#6C5CE7; }
+  .sentence .wb-phon { font-size:11px; font-style:normal; font-weight:700; color:#219150; }
   .sentence.active .wb-phon { color:#FFE8B8; }
   .sentence .wb-id { font-size:11px; color:#636e72; }
-  .sentence.active .wb-id { color:#E8E4FF; }
+  .sentence.active .wb-id { color:#DFF7E3; }
   .repeat-row { display:flex; gap:8px; }
   .btn-repeat { height:36px; padding:0 14px; border-radius:999px; font-weight:800; font-size:12px; border:2px solid #dfe6e9; background:#fff; color:#636e72; }
-  .btn-repeat.active { background:#6C5CE7; color:#fff; border-color:#6C5CE7; }
+  .btn-repeat.active { background:#219150; color:#fff; border-color:#219150; }
   .modes { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .mode-btn { border-radius:16px; padding:16px 10px; font-weight:800; color:#fff; font-size:13px; min-height:70px;
               display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
@@ -87,13 +90,13 @@
   .mode-btn:active { transform:scale(.97); }
   .mode-btn .sub { font-size:10px; opacity:.85; font-weight:700; }
   .mode-btn.ring { border-color:#fff; box-shadow:0 0 0 4px rgba(255,255,255,.5); }
-  .mode-word { background:#6C5CE7; }
+  .mode-word { background:#219150; }
   .mode-sentence { background:#00B894; }
   .mode-wordTrans { background:linear-gradient(135deg,#E17055,#D63031); }
   .mode-sentenceTrans { background:#0984E3; }
   .id-tag { position:absolute; top:6px; right:6px; background:#fff; color:#E17055; font-size:8px; font-weight:800; padding:2px 6px; border-radius:999px; }
   .id-tag.blue { color:#0984E3; background:#FDCB6E; }
-  .controls-bar { position:sticky; bottom:0; padding:10px 0 4px; background:linear-gradient(to top,#FFF9E6 60%,transparent); }
+  .controls-bar { position:sticky; bottom:0; padding:10px 0 4px; background:linear-gradient(to top,#EAF7EC 60%,transparent); }
   .controls-inner { background:#fff; border-radius:18px; box-shadow:0 8px 24px rgba(0,0,0,.14); padding:10px; display:flex; gap:10px; border:1px solid #dfe6e9; }
   .btn-pause, .btn-stop { flex:1; height:58px; border-radius:14px; font-weight:800; font-size:16px; display:flex; align-items:center; justify-content:center; }
   .btn-pause { background:#FDCB6E; color:#2d3436; }
@@ -109,11 +112,47 @@
 <body>
 <div class="wrap">
 
-  <header style="text-align:center">
-    <h1 class="font-baloo font-extrabold">AUDIO INGGRIS<br>Kelas Pakree</h1>
-    <div class="badge">MI SAFINATUL HUDA SOWAN KIDUL</div>
-    <div class="badge" id="readyBadge" style="display:none;margin-top:6px;background:#0984E3">🔊 SUARA SUDAH SIAP - TINGGAL PUTAR</div>
+  <header>
+    <div class="header-row">
+      <div class="header-titles">
+        <h1 class="font-baloo font-extrabold">AUDIO INGGRIS<br>Kelas Pakree</h1>
+        <div class="badge">MI SAFINATUL HUDA SOWAN KIDUL</div>
+      </div>
+      <svg width="72" height="72" viewBox="0 0 500 500" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="logoBg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#27AE60"/>
+            <stop offset="100%" stop-color="#7ED957"/>
+          </linearGradient>
+        </defs>
+        <circle cx="250" cy="250" r="230" fill="url(#logoBg)"/>
+        <circle cx="250" cy="250" r="230" fill="none" stroke="#fff" stroke-width="6" opacity="0.35"/>
+        <g stroke="#FDCB6E" stroke-width="9" stroke-linecap="round" fill="none">
+          <path d="M 118 210 Q 92 250 118 290"/>
+          <path d="M 140 225 Q 122 250 140 275"/>
+          <path d="M 160 236 Q 150 250 160 264"/>
+        </g>
+        <g stroke="#00CEC9" stroke-width="9" stroke-linecap="round" fill="none">
+          <path d="M 340 264 Q 350 250 340 236"/>
+          <path d="M 360 275 Q 378 250 360 225"/>
+          <path d="M 382 290 Q 408 250 382 210"/>
+        </g>
+        <g transform="translate(250,250)">
+          <rect x="-108" y="-72" width="216" height="138" rx="38" fill="#fff"/>
+          <path d="M -28 66 L -46 108 L 10 66 Z" fill="#fff"/>
+          <text x="0" y="24" text-anchor="middle" font-family="'Baloo 2',sans-serif" font-weight="800" font-size="72" fill="#1E8449">EN</text>
+        </g>
+        <g transform="translate(250,58)">
+          <polygon points="0,-22 68,6 0,32 -68,6" fill="#FDCB6E"/>
+          <rect x="-25" y="6" width="50" height="26" rx="6" fill="#F5B93E"/>
+          <line x1="46" y1="6" x2="58" y2="46" stroke="#F5B93E" stroke-width="4.5"/>
+          <circle cx="58" cy="51" r="6" fill="#F5B93E"/>
+        </g>
+      </svg>
+    </div>
+    <div class="badge badge-status" id="readyBadge" style="display:none;background:#0984E3">🔊 SUARA SUDAH SIAP - TINGGAL PUTAR</div>
   </header>
+
 
   <!-- INPUT TEKS -->
   <div class="card">
@@ -136,7 +175,7 @@
     <div style="margin-top:14px">
       <div style="font-size:12px;font-weight:800;color:#636e72;margin-bottom:6px">🐢 KECEPATAN</div>
       <div style="display:flex;gap:6px">
-        <button class="btn-speed active" id="speedNormal" data-rate="1" style="flex:1;height:38px;border-radius:999px;font-weight:800;font-size:12px;border:2px solid #6C5CE7;background:#6C5CE7;color:#fff">🐇 NORMAL</button>
+        <button class="btn-speed active" id="speedNormal" data-rate="1" style="flex:1;height:38px;border-radius:999px;font-weight:800;font-size:12px;border:2px solid #219150;background:#219150;color:#fff">🐇 NORMAL</button>
         <button class="btn-speed" id="speedSlow" data-rate="0.7" style="flex:1;height:38px;border-radius:999px;font-weight:800;font-size:12px;border:2px solid #dfe6e9;background:#fff;color:#636e72">🐢 PELAN</button>
         <button class="btn-speed" id="speedVerySlow" data-rate="0.5" style="flex:1;height:38px;border-radius:999px;font-weight:800;font-size:11px;border:2px solid #dfe6e9;background:#fff;color:#636e72">🐌 AMAT PELAN</button>
       </div>
@@ -144,7 +183,7 @@
 
     <!-- MESIN SUARA -->
     <div class="engine-box" id="engineBoxMesinSuara">
-      <div style="font-size:11px;font-weight:800;color:#6C5CE7;margin-bottom:6px">🎙️ MESIN SUARA</div>
+      <div style="font-size:11px;font-weight:800;color:#219150;margin-bottom:6px">🎙️ MESIN SUARA</div>
       <div style="font-size:11px;color:#636e72;margin-bottom:6px">
         Suara diambil online (neural, jelas) tiap kali diputar, lalu otomatis
         disimpan di HP ini supaya pemutaran berikutnya instan &amp; tetap
@@ -1151,9 +1190,9 @@ document.querySelectorAll('.btn-speed').forEach((btn) => {
     document.querySelectorAll('.btn-speed').forEach((b) => {
       const active = b === btn;
       b.classList.toggle('active', active);
-      b.style.background = active ? '#6C5CE7' : '#fff';
+      b.style.background = active ? '#219150' : '#fff';
       b.style.color = active ? '#fff' : '#636e72';
-      b.style.borderColor = active ? '#6C5CE7' : '#dfe6e9';
+      b.style.borderColor = active ? '#219150' : '#dfe6e9';
     });
   });
 });
