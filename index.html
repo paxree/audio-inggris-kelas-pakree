@@ -59,21 +59,21 @@
   .no-sound { outline:3px solid #FF7675 !important; outline-offset:1px; }
   .sentences { display:flex; flex-direction:column; gap:14px; margin-top:8px; padding:14px 2px; }
   .sentence { border-radius:12px; padding:10px 12px; border:2px solid #dfe6e9; background:#fff; transition:.15s;
-              scroll-margin-bottom:150px; scroll-margin-top:16px; }
-  .sentence.active { background:#00B894; border-color:#00B894; box-shadow:0 4px 10px rgba(0,0,0,.15); }
+              scroll-margin-bottom:150px; scroll-margin-top:16px; transform-origin:center; }
+  .sentence.active { background:#6C5CE7; border-color:#6C5CE7; transform:scale(1.03); z-index:2; box-shadow:0 4px 12px rgba(0,0,0,.2); }
   .sentence .en { font-size:14px; font-weight:800; line-height:1.4; color:#2d3436; }
-  .sentence.active .en { color:#fff; }
+  .sentence.active .en { color:#fff; font-size:16px; }
   .sentence .id { font-size:12px; margin-top:4px; color:#636e72; font-style:italic; }
-  .sentence.active .id { color:#eafff5; }
+  .sentence.active .id { color:#E8E4FF; }
   .sentence .word-breakdown { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; padding-top:8px; border-top:1px dashed #dfe6e9; }
   .sentence.active .word-breakdown { border-top-color:rgba(255,255,255,.4); }
   .sentence .wb-item { display:flex; flex-direction:column; align-items:center; min-width:36px; }
   .sentence .wb-en { font-size:12px; font-weight:800; color:#2d3436; }
-  .sentence.active .wb-en { color:#fff; }
+  .sentence.active .wb-en { color:#fff; font-size:13px; }
   .sentence .wb-phon { font-size:10px; font-style:normal; font-weight:700; color:#6C5CE7; }
   .sentence.active .wb-phon { color:#FFE8B8; }
   .sentence .wb-id { font-size:10px; color:#636e72; }
-  .sentence.active .wb-id { color:#eafff5; }
+  .sentence.active .wb-id { color:#E8E4FF; }
   .translation-box { margin-top:10px; min-height:54px; border-radius:12px; background:#E8FFF3; border:1px solid #00B894; padding:10px;
                       scroll-margin-bottom:150px; scroll-margin-top:16px; }
   .translation-box .label { font-size:10px; font-weight:800; color:#00B894; letter-spacing:.5px; margin-bottom:4px; }
