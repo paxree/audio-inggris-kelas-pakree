@@ -22,13 +22,9 @@
   .font-baloo { font-family: 'Baloo 2', cursive; }
   body { margin: 0; background: #fff; min-height: 100vh; }
   .wrap { max-width: 480px; margin: 0 auto; padding: 16px 12px 24px; display: flex; flex-direction: column; gap: 14px; }
-  .card { background: #fff; border-radius: 20px; padding: 14px; box-shadow: 0 8px 24px rgba(33,145,80,.12), 0 2px 8px rgba(0,0,0,.06);
+  .card { background: linear-gradient(180deg, #D3F0DC 0%, #FBFBF3 100%); border-radius: 20px; padding: 14px; box-shadow: 0 8px 24px rgba(33,145,80,.12), 0 2px 8px rgba(0,0,0,.06);
           position:relative; overflow:hidden; }
-  .card::before {
-    content:''; position:absolute; top:0; left:0; right:0; height:5px;
-    background-image: linear-gradient(45deg, #27AE60 25%, transparent 25%, transparent 50%, #27AE60 50%, #27AE60 75%, transparent 75%, transparent);
-    background-size: 10px 10px; opacity:.35;
-  }
+
   .header-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
   .header-titles { text-align:left; min-width:0; }
   h1 { font-size: 24px; line-height: 1.15; text-align: left; margin: 0 0 6px; letter-spacing: -.3px; }
@@ -267,15 +263,6 @@
   </div>
 
   <div class="card" style="text-align:center">
-    <svg width="56" height="56" viewBox="0 0 100 100" style="display:block;margin:0 auto 6px" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="50" cy="58" rx="26" ry="24" fill="#DCF5E2" stroke="#27AE60" stroke-width="2.5"/>
-      <circle cx="50" cy="30" r="17" fill="#DCF5E2" stroke="#27AE60" stroke-width="2.5"/>
-      <path d="M50 30 L66 27 L50 36 Z" fill="#F5B93E"/>
-      <circle cx="44" cy="27" r="2.6" fill="#2d3436"/>
-      <path d="M30 58 Q14 52 12 66 Q22 68 30 60Z" fill="#27AE60"/>
-      <path d="M70 58 Q86 52 88 66 Q78 68 70 60Z" fill="#27AE60"/>
-      <path d="M38 78 L34 88 M50 80 L50 90 M62 78 L66 88" stroke="#27AE60" stroke-width="2.2" stroke-linecap="round"/>
-    </svg>
     <button class="btn-app" id="btnDownloadApp">⬇️ DOWNLOAD APLIKASI</button>
     <div style="text-align:center;margin-top:8px">
       <button id="btnToggleTeacherMode" style="background:none;border:none;color:#b2bec3;font-size:10px;text-decoration:underline;padding:4px">⚙️ Mode Guru</button>
