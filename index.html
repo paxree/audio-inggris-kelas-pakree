@@ -56,7 +56,7 @@
            display:flex; flex-wrap:wrap; gap:8px 8px; row-gap:22px; }
   .chip { display:inline-flex; flex-direction:column; align-items:center; padding:14px 20px; border-radius:16px;
           scroll-margin-bottom:150px; scroll-margin-top:16px;
-          border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; min-width:82px; }
+          border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; min-width:82px; cursor:pointer; }
   .chip .w-en { font-size:22px; font-weight:800; line-height:1.3; letter-spacing:.2px; }
   .chip .w-phon { font-size:15px; font-style:normal; font-weight:700; color:#219150; line-height:1.3; }
   .chip .w-id { font-size:13px; font-weight:600; color:#636e72; line-height:1.3; }
@@ -900,7 +900,7 @@ async function waitWhilePaused(isStale) {
   while (playback.isPaused && !playback.stopRequested && !(isStale && isStale())) await sleep(120);
 }
 
-async function runMode(mode) {
+async function runMode(mode, startWordIndex) {
   if (!state.words.length && !state.sentences.length) return;
 
   runCounter += 1;
@@ -921,9 +921,9 @@ async function runMode(mode) {
   setStatus(`🔊 Memutar ${modeLabel(mode)}...`);
 
   try {
-    if (mode === 'word') await playWordMode(false, isStale);
+    if (mode === 'word') await playWordMode(false, isStale, startWordIndex || 0);
     else if (mode === 'sentence') await playSentenceMode(false, isStale);
-    else if (mode === 'wordTrans') await playWordMode(true, isStale);
+    else if (mode === 'wordTrans') await playWordMode(true, isStale, startWordIndex || 0);
     else if (mode === 'sentenceTrans') await playSentenceMode(true, isStale);
   } finally {
     if (playback.currentRun === myRun) {
@@ -945,8 +945,8 @@ function updateModeButtonsUI() {
   });
 }
 
-async function playWordMode(withTranslation, isStale) {
-  for (let i = 0; i < state.words.length; i++) {
+async function playWordMode(withTranslation, isStale, startIndex) {
+  for (let i = (startIndex || 0); i < state.words.length; i++) {
     if (isStale()) return;
     const w = state.words[i];
     for (let r = 0; r < state.repeatCount; r++) {
@@ -1194,6 +1194,14 @@ document.querySelectorAll('.btn-speed').forEach((btn) => {
 });
 document.querySelectorAll('.mode-btn').forEach((btn) => {
   btn.addEventListener('click', () => runMode(btn.dataset.mode));
+});
+$('wordChips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  const idx = Number(chip.dataset.widx);
+  if (Number.isNaN(idx)) return;
+  const mode = (playback.mode === 'wordTrans') ? 'wordTrans' : 'word';
+  runMode(mode, idx);
 });
 $('btnPause').addEventListener('click', () => {
   if (!playback.isPlaying) return;
