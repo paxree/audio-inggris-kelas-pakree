@@ -1196,13 +1196,26 @@ document.querySelectorAll('.btn-speed').forEach((btn) => {
 document.querySelectorAll('.mode-btn').forEach((btn) => {
   btn.addEventListener('click', () => runMode(btn.dataset.mode));
 });
+let wordTapState = { idx: null, timer: null };
 $('wordChips').addEventListener('click', (e) => {
   const chip = e.target.closest('.chip');
   if (!chip) return;
   const idx = Number(chip.dataset.widx);
   if (Number.isNaN(idx)) return;
-  const mode = (playback.mode === 'wordTrans') ? 'wordTrans' : 'word';
-  runMode(mode, idx, true);
+
+  if (wordTapState.idx === idx && wordTapState.timer) {
+    // Tap kedua terdeteksi -> putar Inggris + Indonesia
+    clearTimeout(wordTapState.timer);
+    wordTapState.idx = null; wordTapState.timer = null;
+    runMode('wordTrans', idx, true);
+  } else {
+    // Tap pertama -> tunggu sebentar, jika tidak ada tap kedua, putar Inggris saja
+    wordTapState.idx = idx;
+    wordTapState.timer = setTimeout(() => {
+      wordTapState.idx = null; wordTapState.timer = null;
+      runMode('word', idx, true);
+    }, 320);
+  }
 });
 $('btnPause').addEventListener('click', () => {
   if (!playback.isPlaying) return;
