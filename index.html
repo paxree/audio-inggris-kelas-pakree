@@ -900,7 +900,7 @@ async function waitWhilePaused(isStale) {
   while (playback.isPaused && !playback.stopRequested && !(isStale && isStale())) await sleep(120);
 }
 
-async function runMode(mode, startWordIndex) {
+async function runMode(mode, startWordIndex, onlyOnce) {
   if (!state.words.length && !state.sentences.length) return;
 
   runCounter += 1;
@@ -921,9 +921,9 @@ async function runMode(mode, startWordIndex) {
   setStatus(`🔊 Memutar ${modeLabel(mode)}...`);
 
   try {
-    if (mode === 'word') await playWordMode(false, isStale, startWordIndex || 0);
+    if (mode === 'word') await playWordMode(false, isStale, startWordIndex || 0, onlyOnce);
     else if (mode === 'sentence') await playSentenceMode(false, isStale);
-    else if (mode === 'wordTrans') await playWordMode(true, isStale, startWordIndex || 0);
+    else if (mode === 'wordTrans') await playWordMode(true, isStale, startWordIndex || 0, onlyOnce);
     else if (mode === 'sentenceTrans') await playSentenceMode(true, isStale);
   } finally {
     if (playback.currentRun === myRun) {
@@ -945,7 +945,7 @@ function updateModeButtonsUI() {
   });
 }
 
-async function playWordMode(withTranslation, isStale, startIndex) {
+async function playWordMode(withTranslation, isStale, startIndex, onlyOnce) {
   for (let i = (startIndex || 0); i < state.words.length; i++) {
     if (isStale()) return;
     const w = state.words[i];
@@ -980,6 +980,7 @@ async function playWordMode(withTranslation, isStale, startIndex) {
       if (isStale()) return;
       await sleep(500);
     }
+    if (onlyOnce) return;
   }
 }
 async function playSentenceMode(withTranslation, isStale) {
@@ -1201,7 +1202,7 @@ $('wordChips').addEventListener('click', (e) => {
   const idx = Number(chip.dataset.widx);
   if (Number.isNaN(idx)) return;
   const mode = (playback.mode === 'wordTrans') ? 'wordTrans' : 'word';
-  runMode(mode, idx);
+  runMode(mode, idx, true);
 });
 $('btnPause').addEventListener('click', () => {
   if (!playback.isPlaying) return;
