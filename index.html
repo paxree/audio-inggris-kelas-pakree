@@ -32,7 +32,7 @@
   .badge { align-self: flex-start; background:#00B894; color:#fff; font-weight:800; letter-spacing:1px; font-size:12px;
            padding: 6px 16px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0,0,0,.1); }
   .badge.badge-status { align-self:center; display:block; text-align:center; margin:10px auto 0; width:fit-content; }
-  label.field-label, span.field-label { font-size:13px; font-weight:800; color:#2d3436; letter-spacing:.3px; display:block; margin-bottom:6px; }
+  label.field-label { font-size:13px; font-weight:800; color:#2d3436; letter-spacing:.3px; display:block; margin-bottom:6px; }
   textarea#inputText { width:100%; height:130px; border-radius:14px; border:2px solid #dfe6e9; outline:none;
            padding:10px; font-size:15px; line-height:1.5; resize:none; background:#fafafa; }
   textarea#inputText:focus { border-color:#219150; background:#fff; }
@@ -141,14 +141,14 @@
 
   <!-- INPUT TEKS -->
   <div class="card">
-    <div class="row-between" style="margin-bottom:8px">
-      <span class="field-label" id="inputLangLabel" style="margin-bottom:0">✏️ INPUT TEKS</span>
+    <div class="row-between">
+      <label class="field-label" style="margin-bottom:0">✏️ INPUT TEKS</label>
       <div class="repeat-row">
-        <button id="langBtnEn" class="btn-repeat active" data-lang="en">🇬🇧 INGGRIS</button>
-        <button id="langBtnId" class="btn-repeat" data-lang="id">🇮🇩 INDONESIA</button>
+        <button class="btn-repeat btn-langmode active" id="langEn" data-lang="en">🇬🇧 INGG</button>
+        <button class="btn-repeat btn-langmode" id="langId" data-lang="id">🇮🇩 INDO</button>
       </div>
     </div>
-    <textarea id="inputText" placeholder="Ketik atau tempel teks Bahasa Inggris di sini..."></textarea>
+    <textarea id="inputText" placeholder="Ketik atau tempel teks di sini..." style="margin-top:8px"></textarea>
     <button class="btn-clear" id="btnClear">🗑️ HAPUS TEKS</button>
 
     <!-- GALERI PELAJARAN -->
@@ -230,21 +230,21 @@
   <div class="modes">
     <button class="mode-btn mode-word" id="btnWord" data-mode="word">
       <svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px"><polygon points="3,1 15,8 3,15" fill="currentColor"/></svg> PERKATA
-      <span class="sub" id="subWord">Kata Inggris saja</span>
+      <span class="sub">Kata Inggris saja</span>
     </button>
     <button class="mode-btn mode-sentence" id="btnSentence" data-mode="sentence">
       <svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px"><polygon points="3,1 15,8 3,15" fill="currentColor"/></svg> PERKALIMAT
-      <span class="sub" id="subSentence">Kalimat utuh</span>
+      <span class="sub">Kalimat utuh</span>
     </button>
     <button class="mode-btn mode-wordTrans" id="btnWordTrans" data-mode="wordTrans">
-      <span class="id-tag" id="tagWordTrans">ID</span>
+      <span class="id-tag">ID</span>
       <svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px"><polygon points="3,1 15,8 3,15" fill="currentColor"/></svg> TERJEMAH KATA
-      <span class="sub" id="subWordTrans">EN + ID</span>
+      <span class="sub">EN + ID</span>
     </button>
     <button class="mode-btn mode-sentenceTrans" id="btnSentenceTrans" data-mode="sentenceTrans">
-      <span class="id-tag blue" id="tagSentenceTrans">ID</span>
+      <span class="id-tag blue">ID</span>
       <svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-2px"><polygon points="3,1 15,8 3,15" fill="currentColor"/></svg> TERJEMAH KALIMAT
-      <span class="sub" id="subSentenceTrans">EN + ID</span>
+      <span class="sub">EN + ID</span>
     </button>
   </div>
 
@@ -553,7 +553,6 @@ const PHONETIC_OVERRIDES = {
   and: ['AE1', 'N', 'D'],
 };
 async function getPhoneticSpelling(word) {
-  if (state.inputLang !== 'en') return ''; // kamus fonetik ini khusus kosakata Inggris
   const key = word.toLowerCase();
   if (phoneticMemory.has(key)) return phoneticMemory.get(key);
   const entry = PHONETIC_OVERRIDES[key] || (await loadCmuDict()).get(key);
@@ -567,10 +566,21 @@ async function getPhoneticSpelling(word) {
 // ---------------------------------------------------------------------
 const textTranslationMemory = new Map();
 const SKIP_WORDS = new Set(['a', 'an', 'the']);
-function isSkipWord(lower) { return state.inputLang === 'en' && SKIP_WORDS.has(lower); }
+// SKIP_WORDS hanya relevan saat mode Inggris (kata sandang Inggris yang
+// tidak perlu diterjemahkan). Saat mode Indonesia, tidak ada kata yang perlu
+// dilewati - semua kata Indonesia tetap diterjemahkan ke Inggris.
+function shouldSkipWordTranslation(lower) {
+  return state.inputLang === 'en' && SKIP_WORDS.has(lower);
+}
 
-async function translateText(text, sl, tl) {
-  sl = sl || 'en'; tl = tl || 'id';
+// Arah terjemahan mengikuti mode input yang aktif: mode Inggris = EN->ID,
+// mode Indonesia = ID->EN (dibalik, karena teks sumbernya sekarang Indonesia).
+function translationDirection() {
+  return state.inputLang === 'id' ? { sl: 'id', tl: 'en' } : { sl: 'en', tl: 'id' };
+}
+
+async function translateText(text) {
+  const { sl, tl } = translationDirection();
   const key = `${sl}|${tl}|${text.toLowerCase()}`;
   if (textTranslationMemory.has(key)) return textTranslationMemory.get(key);
   if (!navigator.onLine) return '';
@@ -595,10 +605,6 @@ async function translateText(text, sl, tl) {
   }
   if (result) textTranslationMemory.set(key, result);
   return result;
-}
-// Terjemahkan sesuai arah mode input saat ini (EN->ID atau ID->EN)
-function translateForInput(text) {
-  return state.inputLang === 'id' ? translateText(text, 'id', 'en') : translateText(text, 'en', 'id');
 }
 
 // ---------------------------------------------------------------------
@@ -822,7 +828,7 @@ function renderPreview() {
     <span class="chip" data-widx="${i}">
       <span class="w-en">${escapeHtml(w.original)}</span>
       <span class="w-phon" data-wphon="${i}">···</span>
-      <span class="w-id" data-wtrans="${i}">${isSkipWord(w.lower) ? '—' : '···'}</span>
+      <span class="w-id" data-wtrans="${i}">${shouldSkipWordTranslation(w.lower) ? '—' : '···'}</span>
     </span>`).join('');
 
   $('sentenceList').innerHTML = state.sentences.map((s, i) => {
@@ -831,7 +837,7 @@ function renderPreview() {
       <span class="wb-item">
         <span class="wb-en">${escapeHtml(sw.original)}</span>
         <span class="wb-phon" data-swphon="${i}|${sw.lower}">···</span>
-        <span class="wb-id" data-swtrans="${i}|${sw.lower}">${isSkipWord(sw.lower) ? '—' : '···'}</span>
+        <span class="wb-id" data-swtrans="${i}|${sw.lower}">${shouldSkipWordTranslation(sw.lower) ? '—' : '···'}</span>
       </span>`).join('');
     return `
     <div class="sentence" data-sidx="${i}">
@@ -850,10 +856,20 @@ async function prefetchPreviewTranslations() {
   const allUniqueWords = [...new Set(state.words.map((w) => w.lower))];
   for (const w of allUniqueWords) {
     if (myToken !== prefetchToken) return;
-    const tr = isSkipWord(w) ? '' : await translateForInput(w);
-    const phon = await getPhoneticSpelling(w); // fonetik CMU hanya untuk mode input Inggris
+    const skip = shouldSkipWordTranslation(w);
+    const tr = skip ? '' : await translateText(w);
     if (myToken !== prefetchToken) return;
-    if (!isSkipWord(w)) {
+    // Fonetik selalu untuk kata Inggris: mode Inggris -> kata aslinya,
+    // mode Indonesia -> hasil terjemahannya (kalau berupa satu kata utuh).
+    let phonWord = '';
+    if (state.inputLang === 'id') {
+      if (tr && /^[A-Za-z']+$/.test(tr.trim())) phonWord = tr.trim().toLowerCase();
+    } else {
+      phonWord = w;
+    }
+    const phon = phonWord ? await getPhoneticSpelling(phonWord) : '';
+    if (myToken !== prefetchToken) return;
+    if (!skip) {
       document.querySelectorAll(`[data-wtrans]`).forEach((el) => {
         const idx = Number(el.dataset.wtrans);
         if (state.words[idx] && state.words[idx].lower === w) el.textContent = tr || '?';
@@ -874,7 +890,7 @@ async function prefetchPreviewTranslations() {
   }
   for (let i = 0; i < state.sentences.length; i++) {
     if (myToken !== prefetchToken) return;
-    const tr = await translateForInput(state.sentences[i]);
+    const tr = await translateText(state.sentences[i]);
     if (myToken !== prefetchToken) return;
     const el = document.querySelector(`[data-strans="${i}"]`);
     if (el) el.textContent = tr || '?';
@@ -961,8 +977,6 @@ function updateModeButtonsUI() {
 async function playWordMode(withTranslation, isStale, startIndex, onlyOnce) {
   const srcLang = state.inputLang;
   const tgtLang = srcLang === 'id' ? 'en' : 'id';
-  const srcLabel = srcLang === 'id' ? 'ID' : 'EN';
-  const tgtLabel = tgtLang === 'id' ? 'ID' : 'EN';
   for (let i = (startIndex || 0); i < state.words.length; i++) {
     if (isStale()) return;
     const w = state.words[i];
@@ -979,17 +993,17 @@ async function playWordMode(withTranslation, isStale, startIndex, onlyOnce) {
         flashNoSound(document.querySelector(`[data-widx="${i}"]`));
         await sleep(400);
       } else {
-        setStatus(`🔊 ${srcLabel}: ${w.original} [${sourceLabel(source)}]`);
+        setStatus(`🔊 ${srcLang.toUpperCase()}: ${w.original} [${sourceLabel(source)}]`);
       }
-      if (withTranslation && !isSkipWord(w.lower)) {
-        const tr = await translateForInput(w.lower);
+      if (withTranslation && !shouldSkipWordTranslation(w.lower)) {
+        const tr = await translateText(w.lower);
         if (isStale()) return;
         setTranslationDisplay(tr, false);
         if (tr) {
           await waitWhilePaused(isStale); if (isStale()) return;
           const trSource = await speak(tr, tgtLang, 1, isStale);
           if (isStale()) return;
-          if (trSource === 'unavailable') setStatus(`🔇 Suara ${tgtLabel} untuk "${tr}" gagal`);
+          if (trSource === 'unavailable') setStatus(`🔇 Suara ${tgtLang === 'id' ? 'Indonesia' : 'Inggris'} untuk "${tr}" gagal`);
         }
       } else if (withTranslation) {
         setTranslationDisplay('—', false);
@@ -1003,8 +1017,6 @@ async function playWordMode(withTranslation, isStale, startIndex, onlyOnce) {
 async function playSentenceMode(withTranslation, isStale) {
   const srcLang = state.inputLang;
   const tgtLang = srcLang === 'id' ? 'en' : 'id';
-  const srcLabel = srcLang === 'id' ? 'ID' : 'EN';
-  const tgtLabel = tgtLang === 'id' ? 'ID' : 'EN';
   for (let i = 0; i < state.sentences.length; i++) {
     if (isStale()) return;
     const s = state.sentences[i];
@@ -1021,17 +1033,17 @@ async function playSentenceMode(withTranslation, isStale) {
         flashNoSound(document.querySelector(`[data-sidx="${i}"]`));
         await sleep(400);
       } else {
-        setStatus(`🔊 ${srcLabel}: ${s.slice(0, 40)} [${sourceLabel(source)}]`);
+        setStatus(`🔊 ${srcLang.toUpperCase()}: ${s.slice(0, 40)} [${sourceLabel(source)}]`);
       }
       if (withTranslation) {
-        const tr = await translateForInput(s);
+        const tr = await translateText(s);
         if (isStale()) return;
         setTranslationDisplay(tr, false);
         if (tr) {
           await waitWhilePaused(isStale); if (isStale()) return;
           const trSource = await speak(tr, tgtLang, 1, isStale);
           if (isStale()) return;
-          if (trSource === 'unavailable') setStatus(`🔇 Suara ${tgtLabel} untuk kalimat ini gagal`);
+          if (trSource === 'unavailable') setStatus(`🔇 Suara ${tgtLang === 'id' ? 'Indonesia' : 'Inggris'} untuk kalimat ini gagal`);
         }
       }
       if (isStale()) return;
@@ -1078,14 +1090,14 @@ async function generateAllAudio() {
     const key = cacheKeyFor(text, lang);
     if (!items.has(key)) items.set(key, { text, lang });
   };
-  const srcLang = state.inputLang;
-  const tgtLang = srcLang === 'id' ? 'en' : 'id';
   const totalPrep = state.words.length + state.sentences.length;
   let prepDone = 0;
+  const srcLang = state.inputLang;
+  const tgtLang = srcLang === 'id' ? 'en' : 'id';
   for (const w of state.words) {
     addItem(w.original, srcLang);
-    if (!isSkipWord(w.lower)) {
-      const tr = await translateForInput(w.lower);
+    if (!shouldSkipWordTranslation(w.lower)) {
+      const tr = await translateText(w.lower);
       if (tr) addItem(tr, tgtLang);
     }
     prepDone++;
@@ -1093,7 +1105,7 @@ async function generateAllAudio() {
   }
   for (const s of state.sentences) {
     addItem(s, srcLang);
-    const tr = await translateForInput(s);
+    const tr = await translateText(s);
     if (tr) addItem(tr, tgtLang);
     prepDone++;
     $('genAllNote').textContent = `Menerjemahkan kata & kalimat (${prepDone}/${totalPrep})...`;
@@ -1159,22 +1171,16 @@ $('inputText').addEventListener('input', (e) => {
     renderPreview();
   }, 400);
 });
-function setInputLang(lang) {
-  if (state.inputLang === lang) return;
-  state.inputLang = lang;
-  const isEn = lang === 'en';
-  $('langBtnEn').classList.toggle('active', isEn);
-  $('langBtnId').classList.toggle('active', !isEn);
-  $('inputText').placeholder = isEn ? 'Ketik atau tempel teks Bahasa Inggris di sini...' : 'Ketik atau tempel teks Bahasa Indonesia di sini...';
-  $('subWord').textContent = isEn ? 'Kata Inggris saja' : 'Kata Indonesia saja';
-  $('tagWordTrans').textContent = isEn ? 'ID' : 'EN';
-  $('tagSentenceTrans').textContent = isEn ? 'ID' : 'EN';
-  $('subWordTrans').textContent = isEn ? 'EN + ID' : 'ID + EN';
-  $('subSentenceTrans').textContent = isEn ? 'EN + ID' : 'ID + EN';
-  renderPreview();
-}
-$('langBtnEn').addEventListener('click', () => setInputLang('en'));
-$('langBtnId').addEventListener('click', () => setInputLang('id'));
+document.querySelectorAll('.btn-langmode').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (state.inputLang === btn.dataset.lang) return;
+    state.inputLang = btn.dataset.lang;
+    document.querySelectorAll('.btn-langmode').forEach((b) => b.classList.toggle('active', b === btn));
+    // Teks yang sudah diketik tetap dipertahankan - hanya arah terjemahan &
+    // urutan suara yang menyesuaikan mode baru, jadi pratinjau digambar ulang.
+    renderPreview();
+  });
+});
 $('btnSaveLessonNow').addEventListener('click', async () => {
   const btn = $('btnSaveLessonNow');
   const text = $('inputText').value;
@@ -1228,7 +1234,7 @@ document.querySelectorAll('.btn-speed').forEach((btn) => {
 [1, 3, 5].forEach((n) => {
   $('repeat' + n).addEventListener('click', () => {
     state.repeatCount = n;
-    document.querySelectorAll('.btn-repeat').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('#repeat1,#repeat3,#repeat5').forEach((b) => b.classList.remove('active'));
     $('repeat' + n).classList.add('active');
   });
 });
