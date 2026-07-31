@@ -87,6 +87,22 @@
   .sentence .wb-id { font-size:11px; color:#636e72; }
   .sentence.active .wb-id { color:#DFF7E3; }
   .repeat-row { display:flex; gap:8px; }
+  .phon-table-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:50;
+           display:flex; align-items:flex-end; justify-content:center; }
+  .phon-table-panel { background:#FBFBF3; width:100%; max-width:480px; max-height:82vh; border-radius:20px 20px 0 0;
+           padding:14px 14px 10px; box-shadow:0 -8px 24px rgba(0,0,0,.2); display:flex; flex-direction:column; }
+  .phon-table-title { font-size:16px; font-weight:800; color:#2d3436; }
+  .phon-table-close { width:32px; height:32px; border-radius:50%; background:#f1f2f6; color:#636e72; font-size:15px; font-weight:800; }
+  .phon-table-scroll { overflow:auto; margin-top:10px; -webkit-overflow-scrolling:touch; }
+  table.phon-table { border-collapse:collapse; font-size:12px; min-width:640px; }
+  table.phon-table th { position:sticky; top:0; background:#219150; color:#fff; text-align:left; padding:7px 8px;
+           font-size:10.5px; letter-spacing:.2px; white-space:nowrap; }
+  table.phon-table th:first-child { border-radius:8px 0 0 0; }
+  table.phon-table th:last-child { border-radius:0 8px 0 0; }
+  table.phon-table td { padding:7px 8px; border-bottom:1px solid #e3f2e8; vertical-align:top; max-width:150px; }
+  table.phon-table tr:nth-child(even) td { background:#f2fbf4; }
+  table.phon-table .ipa-sym { font-size:15px; font-weight:800; color:#219150; white-space:nowrap; }
+  table.phon-table .id-note-cell { color:#636e72; font-style:italic; }
   .btn-repeat { height:36px; padding:0 14px; border-radius:999px; font-weight:800; font-size:12px; border:2px solid #dfe6e9; background:#fff; color:#636e72; }
   .btn-repeat.active { background:#219150; color:#fff; border-color:#219150; }
   .modes { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -261,12 +277,32 @@
     <div class="status-wrap"><span class="status-text" id="statusText">✅ Siap memutar</span></div>
   </div>
 
+  <div class="card">
+    <div style="font-size:13px;font-weight:800;color:#2d3436;margin-bottom:6px">🗣️ FONETIK</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <button class="btn-phon-table" id="btnShowVowelTable" data-kind="vowel" style="flex:1 1 45%;min-width:100px;height:38px;border-radius:999px;font-weight:800;font-size:11px;border:2px solid #dfe6e9;background:#fff;color:#636e72">Vokal &amp; Diftong</button>
+      <button class="btn-phon-table" id="btnShowConsonantTable" data-kind="consonant" style="flex:1 1 45%;min-width:100px;height:38px;border-radius:999px;font-weight:800;font-size:11px;border:2px solid #dfe6e9;background:#fff;color:#636e72">Konsonan</button>
+      <button class="btn-phon-table" id="btnShowWrongTable" data-kind="wrong" style="flex:1 1 45%;min-width:100px;height:38px;border-radius:999px;font-weight:800;font-size:11px;border:2px solid #dfe6e9;background:#fff;color:#636e72">Sering Salah</button>
+      <button class="btn-phon-table" id="btnShowMinimalPairsTable" data-kind="minimalpairs" style="flex:1 1 45%;min-width:100px;height:38px;border-radius:999px;font-weight:800;font-size:11px;border:2px solid #dfe6e9;background:#fff;color:#636e72">Minimal Pairs</button>
+    </div>
+  </div>
+
   <div class="card" style="text-align:center">
     <button class="btn-app" id="btnDownloadApp">⬇️ DOWNLOAD APLIKASI</button>
     <div style="text-align:center;margin-top:8px">
       <button id="btnToggleTeacherMode" style="background:none;border:none;color:#b2bec3;font-size:10px;text-decoration:underline;padding:4px">⚙️ Mode Guru</button>
     </div>
-    <div class="credit">Dikembangkan oleh Masyuri Pakree, dengan teknologi suara neural Puter.js dan dukungan cache offline.</div>
+    <div class="credit">Dikembangkan oleh Masyuri Pakree, dengan teknologi suara neural Puter.js, fonetik IPA, dan dukungan cache offline.</div>
+  </div>
+
+  <div id="phonTableOverlay" class="phon-table-overlay" style="display:none">
+    <div class="phon-table-panel">
+      <div class="row-between">
+        <span id="phonTableTitle" class="phon-table-title">Tabel</span>
+        <button id="btnClosePhonTable" class="phon-table-close" aria-label="Tutup">✕</button>
+      </div>
+      <div id="phonTableBody" class="phon-table-scroll"></div>
+    </div>
   </div>
 
 </div>
@@ -462,24 +498,21 @@ async function fetchRemoteAudio(key) {
 }
 
 // ---------------------------------------------------------------------
-// EJAAN PELAFALAN (transliterasi fonetis) - dari CMU Pronouncing
-// Dictionary (kamus baku ±134.000 kata Inggris), diubah jadi ejaan gaya
-// Indonesia lewat PEMETAAN TETAP (bukan AI menebak). Kalau kata tidak ada
-// di kamus, TIDAK ditebak - dikosongkan saja (guru bisa isi manual nanti).
+// EJAAN PELAFALAN (transkripsi IPA - International Phonetic Alphabet) -
+// dari CMU Pronouncing Dictionary (kamus baku ±134.000 kata Inggris),
+// diubah jadi IPA lewat PEMETAAN TETAP baku (bukan AI menebak; sama
+// dengan pemetaan yang dipakai kamus-kamus Inggris pada umumnya). Kalau
+// kata tidak ada di kamus, TIDAK ditebak - dikosongkan saja (guru bisa
+// isi manual nanti).
 // ---------------------------------------------------------------------
 const ARPABET_TO_ID = {
-  AA: 'a', AE: 'ae', AH: 'a', AW: 'au', AY: 'ai',
-  B: 'b', CH: 'c', D: 'd', DH: 'dh', EH: 'e', ER: 'er', EY: 'ei',
-  F: 'f', G: 'g', HH: 'h', IH: 'i', JH: 'j', K: 'k',
-  L: 'l', M: 'm', N: 'n', NG: 'ng', OW: 'ou', OY: 'oi', P: 'p',
-  R: 'r', S: 's', SH: 'sy', T: 't', TH: 'th', UH: 'u',
-  V: 'v', W: 'w', Y: 'y', Z: 'z', ZH: 'zh',
+  AA: 'ɑ', AE: 'æ', AH: 'ʌ', AO: 'ɔ', AW: 'aʊ', AY: 'aɪ',
+  B: 'b', CH: 'tʃ', D: 'd', DH: 'ð', EH: 'ɛ', ER: 'ɝ', EY: 'eɪ',
+  F: 'f', G: 'g', HH: 'h', IH: 'ɪ', IY: 'i', JH: 'dʒ', K: 'k',
+  L: 'l', M: 'm', N: 'n', NG: 'ŋ', OW: 'oʊ', OY: 'ɔɪ', P: 'p',
+  R: 'r', S: 's', SH: 'ʃ', T: 't', TH: 'θ', UH: 'ʊ', UW: 'u',
+  V: 'v', W: 'w', Y: 'j', Z: 'z', ZH: 'ʒ',
 };
-// Vokal yang digandakan HANYA kalau suku katanya mendapat tekanan (stress
-// 1/2) - kalau tanpa tekanan (di ujung kata seperti "-ly", "-y") tetap
-// satu huruf, sesuai bunyi asli yang lebih pendek/tidak ditekankan.
-const LONG_VOWELS_STRESSED_DOUBLE = { IY: 'ii', UW: 'uu', AO: 'oo' };
-const LONG_VOWELS_UNSTRESSED_SINGLE = { IY: 'i', UW: 'u', AO: 'o' };
 const VOWEL_PHONEMES = new Set(['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'OY', 'UH', 'UW']);
 let cmuDict = null;
 let cmuDictLoading = null;
@@ -512,16 +545,22 @@ async function loadCmuDict() {
 function phonemeUnitSpelling(phoneme) {
   const base = phoneme.replace(/[0-9]/g, '');
   const stress = (phoneme.match(/[0-9]/) || [''])[0];
-  if (base === 'AH' && stress === '0') return 'ə'; // bunyi pepet (vokal tanpa tekanan)
-  if (LONG_VOWELS_STRESSED_DOUBLE[base]) {
-    return stress === '0' ? LONG_VOWELS_UNSTRESSED_SINGLE[base] : LONG_VOWELS_STRESSED_DOUBLE[base];
-  }
+  // Dua fonem vokal punya bentuk tanpa-tekanan yang bunyinya beda dari
+  // bentuk bertekanannya, jadi butuh simbol IPA sendiri (bukan cuma
+  // ARPABET_TO_ID default): AH0 = pepet polos "ə" (tanpa unsur "r"),
+  // ER0 = pepet yang menyatu dengan bunyi "r" (tanpa tekanan), seperti
+  // akhiran "-er" pada after/teacher/over.
+  if (base === 'AH' && stress === '0') return 'ə';
+  if (base === 'ER' && stress === '0') return 'ɚ';
   return ARPABET_TO_ID[base] || '';
 }
 // Memenggal deret fonem jadi suku kata: konsonan di antara dua vokal
 // dipindah ke suku kata BERIKUTNYA sebanyak mungkin (maks 1 konsonan),
 // sisanya (kalau ada 2+) tetap jadi penutup suku kata sebelumnya.
-// Contoh: before -> B IH0 F AO1 R -> "bi-for", morning -> M AO1 R N IH0 NG -> "mor-ning".
+// Tiap suku kata diberi tanda tekanan IPA baku: ˈ (tekanan utama, stress
+// 1), ˌ (tekanan kedua, stress 2), tanpa tanda (stress 0). Antar suku
+// kata dipisah titik "." sesuai konvensi kamus IPA.
+// Contoh: before -> B IH0 F AO1 R -> "bɪ.ˈfɔr", morning -> M AO1 R N IH0 NG -> "ˈmɔr.nɪŋ".
 function phonemesToSpelling(phonemes) {
   const vowelIdx = [];
   phonemes.forEach((p, i) => { if (VOWEL_PHONEMES.has(p.replace(/[0-9]/g, ''))) vowelIdx.push(i); });
@@ -539,10 +578,132 @@ function phonemesToSpelling(phonemes) {
       const gap = nextVi - vi - 1; // jumlah konsonan di antara dua vokal
       end = gap <= 1 ? vi : nextVi - 2;
     }
-    syllables.push(phonemes.slice(prevBoundary, end + 1));
+    const stress = (phonemes[vi].match(/[0-9]/) || [''])[0];
+    syllables.push({ units: phonemes.slice(prevBoundary, end + 1), stress });
     prevBoundary = end + 1;
   }
-  return syllables.map((syl) => syl.map(phonemeUnitSpelling).join('')).join('-');
+  return syllables.map((syl) => {
+    const mark = syl.stress === '1' ? 'ˈ' : syl.stress === '2' ? 'ˌ' : '';
+    return mark + syl.units.map(phonemeUnitSpelling).join('');
+  }).join('.');
+}
+
+// ---------------------------------------------------------------------
+// TABEL PRATINJAU IPA (referensi guru/murid) - data tetap, cocok dengan
+// pemetaan ARPABET_TO_ID di atas. Bukan untuk diproses, hanya ditampilkan.
+// ---------------------------------------------------------------------
+const IPA_VOWEL_TABLE = {
+  cols: ["IPA", "Cara Baca Kasar", "Contoh Bunyi di Bahasa Inggris", "Contoh Mirip di Bahasa Indonesia", "Keterangan"],
+  rows: [
+  ["/iː/", "íi", "see, leave, me", "mirip “i” di ibu (lebih panjang)", "Vokal i panjang"],
+  ["/ɪ/", "i", "sit, bit, this", "mirip “i” di ingat / tipis", "Vokal i pendek"],
+  ["/eɪ/", "éi", "day, face, name", "mirip “e” di hebat + luncuran “i”", "Diftong"],
+  ["/ɛ/", "è", "bed, head, red", "mirip “e” di sen / enak", "Vokal e terbuka"],
+  ["/æ/", "æ", "cat, man, apple", "mirip “a” di apa, tapi lebih ke depan", "Tidak ada padanan persis"],
+  ["/ɑː/", "áa", "father, car, hot (AmE)", "mirip “a” di batu (lebih panjang & terbuka)", "Vokal a panjang"],
+  ["/ɒ/", "o pendek", "hot, rock (BrE)", "mirip “o” di toko (pendek)", "Lebih sering di British"],
+  ["/ɔː/", "óo", "law, thought, all", "mirip “o” di toko (lebih panjang)", "Vokal o panjang"],
+  ["/oʊ/", "óu", "go, home, no", "mirip “o” di toko + luncuran “u”", "Diftong"],
+  ["/ʊ/", "u pendek", "book, put, good", "mirip “u” di buku (pendek)", ""],
+  ["/uː/", "úu", "food, blue, two", "mirip “u” di minum / kuda (lebih panjang)", "Vokal u panjang"],
+  ["/ʌ/", "a tertutup", "cup, love, but", "mirip “a” di apa, tapi lebih tertutup & pendek", "Bukan pepet"],
+  ["/ə/", "e pepet", "about, banana, teacher", "mirip “e” di besar / sekolah", "Hanya di suku kata lemah"],
+  ["/ɜːr/", "ér", "bird, her, early", "mirip “er” di kerja (lebih panjang)", "American English"],
+  ["/aɪ/", "ái", "time, my, like", "mirip “ai” di pantai", "Diftong"],
+  ["/aʊ/", "áu", "now, house, out", "mirip “au” di laut", "Diftong"],
+  ["/ɔɪ/", "ói", "boy, coin, voice", "mirip “oi” di amboi", "Diftong"]
+]
+};
+
+const IPA_CONSONANT_TABLE = {
+  cols: ["IPA", "Cara Baca Kasar", "Contoh Bunyi di Bahasa Inggris", "Contoh Mirip di Bahasa Indonesia", "Keterangan"],
+  rows: [
+  ["/p/", "p + hembusan", "pen, paper", "Pak (ada hembusan napas)", "Aspirated"],
+  ["/b/", "b", "book, baby", "batu", ""],
+  ["/t/", "t + hembusan", "time, top", "toko (ada hembusan napas)", "Aspirated"],
+  ["/d/", "d", "day, door", "duduk", ""],
+  ["/k/", "k + hembusan", "cat, key", "kopi (ada hembusan napas)", "Aspirated"],
+  ["/g/", "g", "go, good", "gaji", ""],
+  ["/tʃ/", "c", "chair, teacher", "cari (lebih kuat hembusan)", ""],
+  ["/dʒ/", "j", "job, page", "gaji / jari", ""],
+  ["/f/", "f", "fish, coffee", "fisika", ""],
+  ["/v/", "v", "very, love", "veto", ""],
+  ["/θ/", "th (tanpa suara)", "think, three", "Tidak ada. Lidah di antara gigi, napas keluar", "Seperti “s” tapi lidah maju"],
+  ["/ð/", "dh (bersuara)", "this, the, mother", "Tidak ada. Lidah di antara gigi + suara", "Seperti “d” lembut"],
+  ["/s/", "s", "see, sun", "satu", ""],
+  ["/z/", "z", "zoo, busy", "zat", ""],
+  ["/ʃ/", "sy", "she, shop", "syukur", ""],
+  ["/ʒ/", "zy", "television, measure", "ziarah (lebih lembut)", ""],
+  ["/h/", "h", "he, house", "hal", ""],
+  ["/m/", "m", "me, name", "mata", ""],
+  ["/n/", "n", "no, name", "nama", ""],
+  ["/ŋ/", "ng", "sing, thing", "dengan / ngomong", ""],
+  ["/l/", "l", "like, love", "lada", ""],
+  ["/r/", "r (tidak getar)", "red, right", "acar (tapi tidak digetarkan)", "English /r/ = lidah mendekati langit-langit"],
+  ["/w/", "w", "we, water", "wasit", ""],
+  ["/j/", "y", "yes, you", "ya", ""]
+]
+};
+
+const IPA_WRONG_TABLE = {
+  cols: ["IPA", "Cara Baca Kasar", "Contoh Kata Inggris", "Kesalahan Umum Orang Indonesia", "Cara yang Lebih Tepat"],
+  rows: [
+  ["/θ/", "th (tanpa suara)", "think, three, thank", "Jadi t atau s (tink, sree)", "Lidah di antara gigi, hembuskan napas (tanpa suara)"],
+  ["/ð/", "dh (bersuara)", "this, the, mother", "Jadi d (dis, de, moder)", "Lidah di antara gigi + ada suara"],
+  ["/v/", "v", "very, have, love", "Jadi f (feri, hef, lof)", "Bibir bawah sentuh gigi atas + ada getaran"],
+  ["/ɪ/", "i pendek", "sit, ship, bit", "Jadi i panjang (siit, shiip)", "Pendek, seperti “i” di ingat"],
+  ["/iː/", "íi panjang", "seat, sheep, leave", "Kurang panjang", "Lebih panjang dari /ɪ/"],
+  ["/æ/", "æ", "cat, man, apple", "Jadi e atau a (ket, men)", "“a” terbuka ke depan (seperti mau bilang “e” tapi “a”)"],
+  ["/ʌ/", "a tertutup", "cup, love, but", "Jadi a biasa atau o (kap, lov)", "Lebih tertutup & pendek daripada “a” di apa"],
+  ["/ə/", "e pepet", "about, banana, teacher", "Diucapkan terlalu jelas", "Lemah & netral (seperti “e” di besar)"],
+  ["/ʊ/", "u pendek", "book, put, good", "Jadi u panjang (buuk)", "Pendek, seperti “u” di buku"],
+  ["/r/", "r tidak getar", "red, right, car", "Digetarkan seperti acar", "Lidah naik ke belakang, tidak digetarkan"],
+  ["/ʃ/", "sy", "she, shop, fashion", "Kadang jadi s biasa", "Seperti sy di syukur"],
+  ["/tʃ/", "c", "chair, teacher", "Kadang terlalu lembut", "Seperti c di cari tapi lebih kuat"]
+]
+};
+
+const IPA_MINIMAL_PAIRS_TABLE = {
+  cols: ["No", "Kategori", "Bunyi 1 (IPA)", "Bunyi 2 (IPA)", "Contoh Bunyi 1", "Contoh Bunyi 2", "Catatan / Tips"],
+  ipaCols: [2, 3],
+  rows: [
+  ["1", "Prioritas Tinggi", "/θ/", "/t/ atau /s/", "think / three / thank / thin / path", "tink / tree / tank / tin / pat", "Paling sering salah → jadi t atau s. Lidah di antara gigi"],
+  ["2", "Prioritas Tinggi", "/ð/", "/d/", "this / that / they / then / mother", "dis / dat / day / den / mudder", "Paling sering jadi \"d\". Lidah di antara gigi + suara"],
+  ["3", "Prioritas Tinggi", "/v/", "/f/", "very / have / vine / save / live", "ferry / half / fine / safe / life", "Sering jadi \"f\". Bibir bawah sentuh gigi atas + getar"],
+  ["4", "Prioritas Tinggi", "/ɪ/", "/iː/", "ship / bit / sit / fill / live", "sheep / beat / seat / feel / leave", "Pendek vs panjang. Sangat penting dikuasai"],
+  ["5", "Prioritas Tinggi", "/æ/", "/ʌ/ atau /ɑː/", "cat / bat / hat / cap / bag", "cut / but / hut / cup / bug", "/æ/ sering jadi e atau a biasa"],
+  ["6", "Penting", "/ʊ/", "/uː/", "book / pull / full / look / good", "boot / pool / fool / Luke / food", "u pendek vs u panjang"],
+  ["7", "Penting", "/ʃ/", "/s/", "she / ship / shock / shore / fashion", "see / sip / sock / sore / fasten", "sy sering jadi s biasa"],
+  ["8", "Penting", "/tʃ/", "/ʃ/ atau /t/", "chair / chip / catch / watch / cheap", "share / ship / cash / wash / sheep", "c (ch) harus lebih kuat dari sy"],
+  ["9", "Tips Umum", "-", "-", "think – this", "ship – sheep", "Latihan cepat: think-this, ship-sheep, cat-cut, very-ferry"],
+  ["10", "Tips Umum", "-", "-", "Menggetarkan /r/", "Salah mengucapkan /θ/ & /ð/", "Yang paling terdengar “medok”"]
+]
+};
+
+function renderPhonTable(table) {
+  const ipaCols = table.ipaCols || [0];
+  const thead = `<tr>${table.cols.map((c) => `<th>${c}</th>`).join('')}</tr>`;
+  const tbody = table.rows.map((row) => `<tr>${row.map((cell, i) => {
+    const cls = ipaCols.includes(i) ? 'ipa-sym' : i === table.cols.length - 1 ? 'id-note-cell' : '';
+    return `<td class="${cls}">${cell || '—'}</td>`;
+  }).join('')}</tr>`).join('');
+  return `<table class="phon-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+const PHON_TABLES = {
+  vowel: { title: '🗣️ Vokal & Diftong', table: IPA_VOWEL_TABLE },
+  consonant: { title: '🗣️ Konsonan', table: IPA_CONSONANT_TABLE },
+  wrong: { title: '🗣️ Sering Salah', table: IPA_WRONG_TABLE },
+  minimalpairs: { title: '🗣️ Minimal Pairs', table: IPA_MINIMAL_PAIRS_TABLE },
+};
+function openPhonTable(kind) {
+  const entry = PHON_TABLES[kind];
+  if (!entry) return;
+  $('phonTableTitle').textContent = entry.title;
+  $('phonTableBody').innerHTML = renderPhonTable(entry.table);
+  $('phonTableOverlay').style.display = 'flex';
+}
+function closePhonTable() {
+  $('phonTableOverlay').style.display = 'none';
 }
 const phoneticMemory = new Map();
 // Beberapa kata fungsi sangat umum terdaftar di kamus dengan pengucapan
@@ -1336,6 +1497,13 @@ $('btnTestVoice').addEventListener('click', async () => {
     note.textContent = `❌ GAGAL. Pesan error: "${String(err?.message || err)}".`;
     console.error('Tes suara gagal:', err);
   }
+});
+document.querySelectorAll('.btn-phon-table').forEach((btn) => {
+  btn.addEventListener('click', () => openPhonTable(btn.dataset.kind));
+});
+$('btnClosePhonTable').addEventListener('click', closePhonTable);
+$('phonTableOverlay').addEventListener('click', (e) => {
+  if (e.target === $('phonTableOverlay')) closePhonTable();
 });
 $('btnGenerateAll').addEventListener('click', async () => {
   // Pastikan login DULU, dipicu langsung oleh klik tombol ini (bukan di
