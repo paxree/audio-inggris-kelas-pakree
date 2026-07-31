@@ -951,9 +951,9 @@ async function runMode(mode, startWordIndex, onlyOnce) {
 
   try {
     if (mode === 'word') await playWordMode(false, isStale, startWordIndex || 0, onlyOnce);
-    else if (mode === 'sentence') await playSentenceMode(false, isStale);
+    else if (mode === 'sentence') await playSentenceMode(false, isStale, startWordIndex || 0, onlyOnce);
     else if (mode === 'wordTrans') await playWordMode(true, isStale, startWordIndex || 0, onlyOnce);
-    else if (mode === 'sentenceTrans') await playSentenceMode(true, isStale);
+    else if (mode === 'sentenceTrans') await playSentenceMode(true, isStale, startWordIndex || 0, onlyOnce);
   } finally {
     if (playback.currentRun === myRun) {
       playback.isPlaying = false;
@@ -1014,10 +1014,10 @@ async function playWordMode(withTranslation, isStale, startIndex, onlyOnce) {
     if (onlyOnce) return;
   }
 }
-async function playSentenceMode(withTranslation, isStale) {
+async function playSentenceMode(withTranslation, isStale, startIndex, onlyOnce) {
   const srcLang = state.inputLang;
   const tgtLang = srcLang === 'id' ? 'en' : 'id';
-  for (let i = 0; i < state.sentences.length; i++) {
+  for (let i = (startIndex || 0); i < state.sentences.length; i++) {
     if (isStale()) return;
     const s = state.sentences[i];
     for (let r = 0; r < state.repeatCount; r++) {
@@ -1049,6 +1049,7 @@ async function playSentenceMode(withTranslation, isStale) {
       if (isStale()) return;
       await sleep(700);
     }
+    if (onlyOnce) return;
   }
 }
 function sourceLabel(s) {
@@ -1259,6 +1260,27 @@ $('wordChips').addEventListener('click', (e) => {
     wordTapState.timer = setTimeout(() => {
       wordTapState.idx = null; wordTapState.timer = null;
       runMode('word', idx, true);
+    }, 320);
+  }
+});
+let sentenceTapState = { idx: null, timer: null };
+$('sentenceList').addEventListener('click', (e) => {
+  const el = e.target.closest('.sentence');
+  if (!el) return;
+  const idx = Number(el.dataset.sidx);
+  if (Number.isNaN(idx)) return;
+
+  if (sentenceTapState.idx === idx && sentenceTapState.timer) {
+    // Tap kedua terdeteksi -> putar kalimat + terjemahan
+    clearTimeout(sentenceTapState.timer);
+    sentenceTapState.idx = null; sentenceTapState.timer = null;
+    runMode('sentenceTrans', idx, true);
+  } else {
+    // Tap pertama -> tunggu sebentar, jika tidak ada tap kedua, putar kalimat saja
+    sentenceTapState.idx = idx;
+    sentenceTapState.timer = setTimeout(() => {
+      sentenceTapState.idx = null; sentenceTapState.timer = null;
+      runMode('sentence', idx, true);
     }, 320);
   }
 });
