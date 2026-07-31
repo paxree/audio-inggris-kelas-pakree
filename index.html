@@ -725,6 +725,21 @@ async function getPhoneticSpelling(word) {
   phoneticMemory.set(key, spelling);
   return spelling;
 }
+// Chip angka/notasi (06.30, 3.14, 3/4, dst) tidak ada di kamus CMU sebagai
+// satu entri, jadi fonetiknya disusun per KATA dari cara ia dibacakan
+// dalam bahasa Inggris (lihat applySpeechNumberRules), lalu digabung.
+function isNumericToken(w) {
+  return /^\d+(?:[:.,\/]\d+)*$/.test(w);
+}
+async function getPhoneticForPhrase(phraseText) {
+  const tokens = (phraseText.toLowerCase().match(/[a-z']+/g) || []);
+  const parts = [];
+  for (const t of tokens) {
+    const sp = await getPhoneticSpelling(t);
+    if (sp) parts.push(sp);
+  }
+  return parts.join(' ');
+}
 
 // ---------------------------------------------------------------------
 // TERJEMAHAN TEKS (bukan audio) - untuk menampilkan & mengucapkan arti
@@ -978,6 +993,17 @@ function applySpeechNumberRules(text, lang) {
   // 7) Jam: 14:30 (menit selalu 2 digit; jam 0-23) - dibedakan dari
   //    rasio/skor N:N yang biasanya tidak berpad nol.
   t = t.replace(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g, (_, h, m) => {
+    const hh = Number(h), mm = Number(m);
+    if (lang === 'id') return `pukul ${cardinalWords(hh, lang)}${mm ? ' ' + cardinalWords(mm, lang) : ''}`;
+    if (!mm) return `${cardinalWords(hh, lang)} o'clock`;
+    const mmWords = mm < 10 ? `oh ${ONES_EN[mm]}` : twoDigitWordsEN(mm);
+    return `${cardinalWords(hh, lang)} ${mmWords}`;
+  });
+
+  // 7b) Jam notasi titik ala Indonesia: 06.30 (jam & menit 2 digit,
+  //     dibedakan dari desimal biasa yang jarang berpola 2 digit-2 digit
+  //     dengan nilai jam & menit yang valid sekaligus).
+  t = t.replace(/\b(0[0-9]|1[0-9]|2[0-3])\.([0-5]\d)\b/g, (_, h, m) => {
     const hh = Number(h), mm = Number(m);
     if (lang === 'id') return `pukul ${cardinalWords(hh, lang)}${mm ? ' ' + cardinalWords(mm, lang) : ''}`;
     if (!mm) return `${cardinalWords(hh, lang)} o'clock`;
@@ -1289,20 +1315,34 @@ async function prefetchPreviewTranslations() {
   const allUniqueWords = [...new Set(state.words.map((w) => w.lower))];
   for (const w of allUniqueWords) {
     if (myToken !== prefetchToken) return;
-    const skip = shouldSkipWordTranslation(w);
-    const tr = skip ? '' : await translateText(w);
-    if (myToken !== prefetchToken) return;
-    // Fonetik selalu untuk kata Inggris: mode Inggris -> kata aslinya,
-    // mode Indonesia -> hasil terjemahannya (kalau berupa satu kata utuh).
-    let phonWord = '';
-    if (state.inputLang === 'id') {
-      if (tr && /^[A-Za-z']+$/.test(tr.trim())) phonWord = tr.trim().toLowerCase();
+    const numeric = isNumericToken(w);
+    let tr = '';
+    let phon = '';
+    if (numeric) {
+      // Angka/notasi khusus (jam, desimal, pecahan, dst) - fonetik &
+      // "terjemahan" diambil dari KETENTUAN PEMBACAAN ANGKA di atas
+      // (applySpeechNumberRules), bukan dari mesin terjemah biasa, karena
+      // mesin terjemah tidak tahu cara membaca angka dengan benar.
+      const enReading = applySpeechNumberRules(w, 'en');
+      const idReading = applySpeechNumberRules(w, 'id');
+      tr = state.inputLang === 'id' ? enReading : idReading;
+      phon = await getPhoneticForPhrase(enReading);
     } else {
-      phonWord = w;
+      const skip = shouldSkipWordTranslation(w);
+      tr = skip ? '' : await translateText(w);
+      if (myToken !== prefetchToken) return;
+      // Fonetik selalu untuk kata Inggris: mode Inggris -> kata aslinya,
+      // mode Indonesia -> hasil terjemahannya (kalau berupa satu kata utuh).
+      let phonWord = '';
+      if (state.inputLang === 'id') {
+        if (tr && /^[A-Za-z']+$/.test(tr.trim())) phonWord = tr.trim().toLowerCase();
+      } else {
+        phonWord = w;
+      }
+      phon = phonWord ? await getPhoneticSpelling(phonWord) : '';
     }
-    const phon = phonWord ? await getPhoneticSpelling(phonWord) : '';
     if (myToken !== prefetchToken) return;
-    if (!skip) {
+    if (numeric || !shouldSkipWordTranslation(w)) {
       document.querySelectorAll(`[data-wtrans]`).forEach((el) => {
         const idx = Number(el.dataset.wtrans);
         if (state.words[idx] && state.words[idx].lower === w) el.textContent = tr || '?';
