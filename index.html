@@ -58,14 +58,14 @@
           scroll-margin-bottom:150px; scroll-margin-top:16px;
           border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; min-width:82px; cursor:pointer; }
   .chip .w-en { font-size:22px; font-weight:800; line-height:1.3; letter-spacing:.2px; }
-  .chip .w-phon { font-size:15px; font-style:normal; font-weight:700; color:#219150; line-height:1.3; }
+  .chip .w-phon { font-size:22px; font-style:normal; font-weight:400; color:#219150; line-height:1.3; }
   .chip .w-id { font-size:13px; font-weight:600; color:#636e72; line-height:1.3; }
   .chip.active { background:#000; color:#fff; transform:scale(1.12); z-index:2; box-shadow:0 4px 12px rgba(0,0,0,.2); position:relative; }
   .sentence.active { position:relative; }
   #wordChips { flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; }
   #wordChips .chip { flex:0 0 auto; scroll-snap-align:center; }
   .chip.active .w-en { font-size:26px; }
-  .chip.active .w-phon { color:#FFE8B8; }
+  .chip.active .w-phon { font-size:26px; color:#FFE8B8; }
   .chip.active .w-id { color:#DFF7E3; }
   .no-sound { outline:3px solid #FF7675 !important; outline-offset:1px; }
   .sentences { display:flex; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x mandatory;
@@ -82,8 +82,8 @@
   .sentence .wb-item { display:flex; flex-direction:column; align-items:center; min-width:42px; }
   .sentence .wb-en { font-size:13px; font-weight:800; color:#2d3436; }
   .sentence.active .wb-en { color:#fff; font-size:14px; }
-  .sentence .wb-phon { font-size:11px; font-style:normal; font-weight:700; color:#219150; }
-  .sentence.active .wb-phon { color:#FFE8B8; }
+  .sentence .wb-phon { font-size:13px; font-style:normal; font-weight:400; color:#219150; }
+  .sentence.active .wb-phon { font-size:14px; color:#FFE8B8; }
   .sentence .wb-id { font-size:11px; color:#636e72; }
   .sentence.active .wb-id { color:#DFF7E3; }
   .repeat-row { display:flex; gap:8px; }
@@ -94,14 +94,14 @@
   .phon-table-title { font-size:16px; font-weight:800; color:#2d3436; }
   .phon-table-close { width:32px; height:32px; border-radius:50%; background:#f1f2f6; color:#636e72; font-size:15px; font-weight:800; }
   .phon-table-scroll { overflow:auto; margin-top:10px; -webkit-overflow-scrolling:touch; }
-  table.phon-table { border-collapse:collapse; font-size:12px; min-width:640px; }
-  table.phon-table th { position:sticky; top:0; background:#219150; color:#fff; text-align:left; padding:7px 8px;
-           font-size:10.5px; letter-spacing:.2px; white-space:nowrap; }
+  table.phon-table { border-collapse:collapse; font-size:15px; min-width:760px; }
+  table.phon-table th { position:sticky; top:0; background:#219150; color:#fff; text-align:left; padding:8px 10px;
+           font-size:13px; letter-spacing:.2px; white-space:nowrap; }
   table.phon-table th:first-child { border-radius:8px 0 0 0; }
   table.phon-table th:last-child { border-radius:0 8px 0 0; }
-  table.phon-table td { padding:7px 8px; border-bottom:1px solid #e3f2e8; vertical-align:top; max-width:150px; }
+  table.phon-table td { padding:9px 10px; border-bottom:1px solid #e3f2e8; vertical-align:top; max-width:150px; }
   table.phon-table tr:nth-child(even) td { background:#f2fbf4; }
-  table.phon-table .ipa-sym { font-size:15px; font-weight:800; color:#219150; white-space:nowrap; }
+  table.phon-table .ipa-sym { font-size:19px; font-weight:800; color:#219150; white-space:nowrap; }
   table.phon-table .id-note-cell { color:#636e72; font-style:italic; }
   .btn-repeat { height:36px; padding:0 14px; border-radius:999px; font-weight:800; font-size:12px; border:2px solid #dfe6e9; background:#fff; color:#636e72; }
   .btn-repeat.active { background:#219150; color:#fff; border-color:#219150; }
