@@ -791,8 +791,36 @@ function translationDirection() {
   return state.inputLang === 'id' ? { sl: 'id', tl: 'en' } : { sl: 'en', tl: 'id' };
 }
 
+// Beberapa kata sering diterjemahkan tidak konsisten oleh mesin terjemah
+// (mis. "you" kadang jadi "Anda" saat berdiri sendiri, kadang "kamu" saat
+// dalam kalimat). Daftar ini memaksa hasil yang konsisten, dicek SEBELUM
+// memanggil mesin terjemah, baik untuk pratinjau kata maupun kalimat.
+const TRANSLATION_OVERRIDES = {
+  'en|id': { you: 'kamu' },
+};
+// Mengganti "Anda" (formal) pada hasil terjemahan kalimat menjadi "kamu",
+// KHUSUS saat kalimat sumbernya memang mengandung kata "you" - supaya
+// konsisten dengan aturan kata di atas, walau "you" diterjemahkan di
+// tengah kalimat sekaligus (bukan per kata satu-satu). Huruf awal
+// dipertahankan (mis. di awal kalimat jadi "Kamu", bukan "kamu").
+function applyTranslationOverrides(sourceText, result, sl, tl) {
+  if (sl === 'en' && tl === 'id' && /\byou\b/i.test(sourceText)) {
+    return result.replace(/\bAnda\b/g, (m, offset, full) => {
+      const before = full.slice(0, offset).trimEnd();
+      const atStart = before === '' || /[.!?]$/.test(before);
+      return atStart ? 'Kamu' : 'kamu';
+    });
+  }
+  return result;
+}
+
 async function translateText(text) {
   const { sl, tl } = translationDirection();
+  const overrideTable = TRANSLATION_OVERRIDES[`${sl}|${tl}`];
+  const trimmedLower = text.trim().toLowerCase();
+  if (overrideTable && Object.prototype.hasOwnProperty.call(overrideTable, trimmedLower)) {
+    return overrideTable[trimmedLower];
+  }
   const key = `${sl}|${tl}|${text.toLowerCase()}`;
   if (textTranslationMemory.has(key)) return textTranslationMemory.get(key);
   if (!navigator.onLine) return '';
@@ -815,6 +843,7 @@ async function translateText(text) {
       }
     } catch { /* biarkan kosong */ }
   }
+  if (result) result = applyTranslationOverrides(text, result, sl, tl);
   if (result) textTranslationMemory.set(key, result);
   return result;
 }
