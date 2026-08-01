@@ -593,6 +593,31 @@ function phonemesToSpelling(phonemes) {
   }).join('.');
 }
 
+// KOREKSI "FLAPPING" T->D DARI KAMUS CMU (berlaku untuk SEMUA kata, bukan
+// cuma bilangan) - kamus CMU merekam pengucapan Amerika yang sangat
+// santai/cepat, di mana konsonan T di antara dua vokal luntur menjadi
+// bunyi mirip D (mis. thirty -> "thirdy", forty -> "fordy", city ->
+// "cidy"). Untuk KELAS/pengajaran pelafalan baku, bunyi itu perlu
+// dikembalikan ke T - TAPI hanya kalau kata itu memang tidak punya huruf
+// "d" sama sekali di ejaannya (supaya kata yang betulan berhuruf d,
+// seperti body/ready/ladder/wanted, tidak ikut salah diubah).
+function deflapIntervocalicD(word, phonemes) {
+  if (/d/i.test(word)) return phonemes; // ada huruf "d" asli -> jangan diutak-atik
+  let changed = false;
+  const fixed = phonemes.map((p, i) => {
+    const base = p.replace(/[0-9]/g, '');
+    if (base !== 'D') return p;
+    const prevBase = i > 0 ? phonemes[i - 1].replace(/[0-9]/g, '') : '';
+    const nextIsVowel = i < phonemes.length - 1 && VOWEL_PHONEMES.has(phonemes[i + 1].replace(/[0-9]/g, ''));
+    // Flap terjadi sesudah VOKAL ("thirty") atau sesudah /r/ ("forty",
+    // "party") - dan sebelum vokal tanpa tekanan berikutnya.
+    const prevEligible = VOWEL_PHONEMES.has(prevBase) || prevBase === 'R';
+    if (prevEligible && nextIsVowel) { changed = true; return 'T'; }
+    return p;
+  });
+  return changed ? fixed : phonemes;
+}
+
 // ---------------------------------------------------------------------
 // TABEL PRATINJAU IPA (referensi guru/murid) - data tetap, cocok dengan
 // pemetaan ARPABET_TO_ID di atas. Bukan untuk diproses, hanya ditampilkan.
@@ -717,25 +742,17 @@ const phoneticMemory = new Map();
 // berbasis aturan (bukan tebakan AI) - daftar tetap & bisa ditambah.
 const PHONETIC_OVERRIDES = {
   and: ['AE1', 'N', 'D'],
-  // Kamus CMU (data mentah) mencatat sebagian kata "puluhan" ini dengan
-  // konsonan D, bukan T - karena kamus itu memang merekam pengucapan
-  // Amerika yang sangat santai/cepat ("flapping", contoh nyata: "thirty"
-  // sering terdengar seperti "thirdy"). Untuk KELAS/belajar pelafalan
-  // yang jelas, di sini di-override manual supaya tetap bunyi T yang
-  // baku (sama seperti kamus pengucapan standar, mis. Oxford/Cambridge).
-  twenty: ['T', 'W', 'EH1', 'N', 'T', 'IY0'],
-  thirty: ['TH', 'ER1', 'T', 'IY0'],
-  forty: ['F', 'AO1', 'R', 'T', 'IY0'],
-  fifty: ['F', 'IH1', 'F', 'T', 'IY0'],
-  sixty: ['S', 'IH1', 'K', 'S', 'T', 'IY0'],
-  seventy: ['S', 'EH1', 'V', 'AH0', 'N', 'T', 'IY0'],
-  eighty: ['EY1', 'T', 'IY0'],
-  ninety: ['N', 'AY1', 'N', 'T', 'IY0'],
 };
 async function getPhoneticSpelling(word) {
   const key = word.toLowerCase();
   if (phoneticMemory.has(key)) return phoneticMemory.get(key);
-  const entry = PHONETIC_OVERRIDES[key] || (await loadCmuDict()).get(key);
+  let entry = PHONETIC_OVERRIDES[key];
+  if (!entry) {
+    const dictEntry = (await loadCmuDict()).get(key);
+    // deflapIntervocalicD didefinisikan di bawah (dipakai di sini lewat
+    // hoisting function declaration) - lihat catatan "KOREKSI FLAPPING".
+    entry = dictEntry ? deflapIntervocalicD(key, dictEntry) : undefined;
+  }
   const spelling = entry ? phonemesToSpelling(entry) : '';
   phoneticMemory.set(key, spelling);
   return spelling;
@@ -978,6 +995,31 @@ function applySpeechNumberRules(text, lang) {
       : `${decimalWords(base, lang)} times ten to the power of ${cardinalWords(Math.abs(expNum), lang)}`;
   });
 
+  // 2b) Bilangan berpemisah ribuan. Pemisah ribuan SELALU langsung
+  //     diikuti tepat 3 digit TANPA spasi (mis. "187,543", "1,000,000",
+  //     "1.000.000") - koma/titik yang diikuti spasi BUKAN pemisah
+  //     ribuan dan tetap dibiarkan sebagai tanda baca kalimat biasa.
+  //     Ditangani di sini (sebelum tanggal & nomor versi di bawah) supaya
+  //     "1.000.000" tidak keliru terbaca seperti nomor versi "2.3.1".
+  //     Gaya Indonesia (titik sbg pemisah ribuan, koma sbg desimal)
+  //     mensyaratkan minimal 2 kelompok titik supaya tidak bentrok dengan
+  //     desimal biasa ("3.14") atau notasi Rupiah satu-kelompok
+  //     ("Rp 25.000", ditangani terpisah oleh aturan Rupiah di bawah).
+  //     Angka yang didahului "Rp" atau "$" dikecualikan di sini supaya
+  //     tetap ditangani aturan Rupiah/dolar tersendiri di bawah.
+  t = t.replace(/(?<!(?:Rp|\$)\.?\s?)\b\d{1,3}(?:\.\d{3}){2,}(?:,\d+)?\b/g, (m) => {
+    const [intPart, fracPart] = m.split(',');
+    const cleanInt = intPart.replace(/\./g, '');
+    return fracPart !== undefined ? decimalWords(`${cleanInt}.${fracPart}`, lang) : cardinalWords(Number(cleanInt), lang);
+  });
+  // Gaya Inggris/Amerika (koma sbg pemisah ribuan, titik sbg desimal):
+  // "187,543", "1,000,000", "2,334,665,987".
+  t = t.replace(/(?<!(?:Rp|\$)\.?\s?)\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b/g, (m) => {
+    const [intPart, fracPart] = m.split('.');
+    const cleanInt = intPart.replace(/,/g, '');
+    return fracPart !== undefined ? decimalWords(`${cleanInt}.${fracPart}`, lang) : cardinalWords(Number(cleanInt), lang);
+  });
+
   // 3) Tanggal: 31/07/2026 atau 2026-07-31
   t = t.replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (_, d, m, y) => {
     const day = Number(d), month = Number(m), year = Number(y);
@@ -1005,6 +1047,25 @@ function applySpeechNumberRules(text, lang) {
   //     uang tanpa simbol Rp), guru bisa tambah simbol/pemisah supaya
   //     terbaca sebagai angka biasa.
   t = t.replace(/\b\d{8,}\b/g, (m) => (m.match(/.{1,4}/g) || [m]).map((g) => digitsByDigit(g, lang)).join(', '));
+
+  // 4c) Uang dolar: $45.99, $1,234.56 (mendukung koma pemisah ribuan).
+  //     Ditangani sebelum aturan nomor versi & bilangan polos di bawah,
+  //     supaya nilai dolar besar tidak keliru terbaca sepotong-sepotong.
+  t = t.replace(/\$\s?(\d{1,3}(?:,\d{3})*)(?:\.(\d{2}))?/g, (_, dollars, cents) => {
+    const dNum = Number(dollars.replace(/,/g, ''));
+    let out = lang === 'id' ? `${cardinalWords(dNum, lang)} dolar` : `${cardinalWords(dNum, lang)} dollar${dNum === 1 ? '' : 's'}`;
+    if (cents) {
+      const cNum = Number(cents);
+      out += lang === 'id' ? ` ${cardinalWords(cNum, lang)} sen` : ` and ${cardinalWords(cNum, lang)} cent${cNum === 1 ? '' : 's'}`;
+    }
+    return out;
+  });
+
+  // 4d) Harga Rupiah: Rp 25.000, Rp 1.234.567 (titik sebagai pemisah
+  //     ribuan). Ditangani sebelum aturan nomor versi di bawah supaya
+  //     nilai Rupiah besar (banyak titik) tidak keliru terbaca seperti
+  //     nomor versi.
+  t = t.replace(/Rp\.?\s?([\d.]+)/g, (_, numStr) => `${cardinalWords(Number(numStr.replace(/\./g, '')), lang)} rupiah`);
 
   // 5) Nomor versi: 2.3.1 (tiga bagian dipisah titik)
   t = t.replace(/\b(\d+)\.(\d+)\.(\d+)\b/g, (_, a, b, c) => [a, b, c].map((n) => cardinalWords(+n, lang))
@@ -1039,20 +1100,6 @@ function applySpeechNumberRules(text, lang) {
   t = t.replace(/\b(\d+):(\d+)\b/g, (_, a, b) => lang === 'id'
     ? `${cardinalWords(+a, lang)} banding ${cardinalWords(+b, lang)}`
     : `${cardinalWords(+a, lang)} to ${cardinalWords(+b, lang)}`);
-
-  // 9) Uang dolar: $45.99
-  t = t.replace(/\$\s?(\d+)(?:\.(\d{2}))?/g, (_, dollars, cents) => {
-    const dNum = Number(dollars);
-    let out = lang === 'id' ? `${cardinalWords(dNum, lang)} dolar` : `${cardinalWords(dNum, lang)} dollar${dNum === 1 ? '' : 's'}`;
-    if (cents) {
-      const cNum = Number(cents);
-      out += lang === 'id' ? ` ${cardinalWords(cNum, lang)} sen` : ` and ${cardinalWords(cNum, lang)} cent${cNum === 1 ? '' : 's'}`;
-    }
-    return out;
-  });
-
-  // 10) Harga Rupiah: Rp 25.000 (titik sebagai pemisah ribuan)
-  t = t.replace(/Rp\.?\s?([\d.]+)/g, (_, numStr) => `${cardinalWords(Number(numStr.replace(/\./g, '')), lang)} rupiah`);
 
   // 11) Persentase: 75%
   t = t.replace(/(\d+(?:\.\d+)?)\s?%/g, (_, num) => lang === 'id' ? `${decimalWords(num, lang)} persen` : `${decimalWords(num, lang)} percent`);
