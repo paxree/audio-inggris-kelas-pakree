@@ -58,17 +58,17 @@
           scroll-margin-bottom:150px; scroll-margin-top:16px;
           border:1px solid #dfe6e9; background:#fff; color:#2d3436; transition:.15s; min-width:82px; cursor:pointer; }
   .chip .w-en { font-size:22px; font-weight:800; line-height:1.3; letter-spacing:.2px; }
+  .chip .w-num-en { font-size:11px; font-weight:700; color:#00897B; line-height:1.3; letter-spacing:.1px; text-align:center; }
   .chip .w-phon { font-size:22px; font-style:normal; font-weight:400; color:#219150; line-height:1.3; }
   .chip .w-id { font-size:13px; font-weight:600; color:#636e72; line-height:1.3; }
   .chip.active { background:#000; color:#fff; transform:scale(1.12); z-index:2; box-shadow:0 4px 12px rgba(0,0,0,.2); position:relative; }
   .sentence.active { position:relative; }
   #wordChips { flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; }
   #wordChips .chip { flex:0 0 auto; scroll-snap-align:center; }
-  /* GALERI PELAJARAN - gulir mendatar, sama seperti Pratinjau Kata (#wordChips)
-     & Pratinjau Kalimat (.sentences) di atas, supaya konsisten. */
-  #lessonGallery { flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; align-items:stretch; }
-  #lessonGallery .lesson-row { flex:0 0 auto; scroll-snap-align:center; width:180px; }
+  #lessonGallery { flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; }
+  #lessonGallery .lesson-row { flex:0 0 auto; scroll-snap-align:center; width:200px; }
   .chip.active .w-en { font-size:26px; }
+  .chip.active .w-num-en { color:#FFE8B8; }
   .chip.active .w-phon { font-size:26px; color:#FFE8B8; }
   .chip.active .w-id { color:#DFF7E3; }
   .no-sound { outline:3px solid #FF7675 !important; outline-offset:1px; }
@@ -178,7 +178,7 @@
         <span class="pill" id="lessonCount">0</span>
       </div>
       <div style="font-size:10px;color:#636e72;margin:4px 0 6px">Tap untuk memuat pelajaran lama ke kotak teks di atas.</div>
-      <div class="chips" id="lessonGallery"></div>
+      <div class="chips" id="lessonGallery" style="max-height:120px"></div>
       <button id="btnSaveLessonNow" style="margin-top:8px;width:100%;height:34px;border-radius:999px;background:#00B894;color:#fff;font-weight:800;font-size:11px">💾 Simpan Teks Ini ke Galeri Sekarang</button>
       <button id="btnClearGallery" style="display:none;margin-top:8px;width:100%;height:34px;border-radius:999px;background:#FF7675;color:#fff;font-weight:800;font-size:11px">🗑️ Hapus Semua Galeri</button>
     </div>
@@ -725,21 +725,6 @@ async function getPhoneticSpelling(word) {
   phoneticMemory.set(key, spelling);
   return spelling;
 }
-// Chip angka/notasi (06.30, 3.14, 3/4, dst) tidak ada di kamus CMU sebagai
-// satu entri, jadi fonetiknya disusun per KATA dari cara ia dibacakan
-// dalam bahasa Inggris (lihat applySpeechNumberRules), lalu digabung.
-function isNumericToken(w) {
-  return /^\d+(?:[:.,\/]\d+)*$/.test(w);
-}
-async function getPhoneticForPhrase(phraseText) {
-  const tokens = (phraseText.toLowerCase().match(/[a-z']+/g) || []);
-  const parts = [];
-  for (const t of tokens) {
-    const sp = await getPhoneticSpelling(t);
-    if (sp) parts.push(sp);
-  }
-  return parts.join(' ');
-}
 
 // ---------------------------------------------------------------------
 // TERJEMAHAN TEKS (bukan audio) - untuk menampilkan & mengucapkan arti
@@ -808,287 +793,280 @@ function parseSentences(text) {
 }
 
 // ---------------------------------------------------------------------
-// KETENTUAN PEMBACAAN ANGKA & FORMAT KHUSUS (suara Inggris & Indonesia)
+// KETENTUAN MEMBACA ANGKA & NOTASI KHUSUS
+// (mengikuti tabel acuan "Bentuk_angka" yang dilampirkan: cardinal,
+// ordinal, desimal, pecahan, persen, mata uang, harga, suhu, jam, rasio,
+// skor, tanggal, nomor telepon, rating, dimensi, versi, pangkat, akar
+// kuadrat, notasi ilmiah, umur, peringkat, probabilitas, kecepatan,
+// frekuensi, nomor halaman)
+//
+// Tujuan: sebelum teks dikirim ke mesin suara (Puter.js), angka & notasi
+// di atas diubah dulu jadi kata-kata yang diucapkan (bukan dieja angka
+// mentah), sesuai BAHASA SUARA yang akan dipakai (lang) - berlaku untuk
+// suara Inggris (kata/kalimat asli) MAUPUN suara terjemahan Indonesia,
+// karena keduanya sama-sama lewat synthesizeWithPuter() di bawah.
+//
+// Catatan jujur soal batasan:
+// - "Jam" (14:30) dan "rasio/skor" (3:2) sama-sama ditulis "angka:angka"
+//   dan tidak bisa dibedakan 100% otomatis dari polanya saja. Di sini,
+//   kalau jam-nya masuk akal (0-23), dianggap notasi JAM; selain itu
+//   dianggap rasio/skor ("3:2" -> "three to two").
+// - Angka Romawi (mis. "XIV") SENGAJA tidak diubah otomatis, karena
+//   terlalu mirip kata/singkatan biasa (risiko keliru mengubah kata
+//   seperti "I" atau "MIX") - kalau perlu dibacakan, tulis dalam angka
+//   biasa saja (14, bukan XIV).
+// - Koordinat lintang/bujur (mis. "6°12′S") tidak ditangani khusus -
+//   jarang muncul dalam materi kosakata/kalimat kelas.
 // ---------------------------------------------------------------------
-// Berdasarkan tabel rujukan "Bentuk_angka" (fungsi angka -> cara membaca
-// dalam bahasa Inggris & Indonesia): bilangan pokok, tingkat, desimal,
-// pecahan, persen, mata uang, harga, suhu, jam, rasio, skor, tanggal,
-// nomor telepon, dimensi, versi, koordinat, pangkat, akar, notasi ilmiah,
-// umur, peringkat, peluang, kecepatan, frekuensi, nomor halaman & angka
-// Romawi. Diterapkan HANYA pada teks yang akan DIUCAPKAN (di dalam
-// speak()) - teks yang tampil di layar (chip/kalimat) tetap apa adanya,
-// supaya anak tetap belajar membaca bentuk tertulis aslinya sambil
-// mendengar cara mengucapkannya yang benar.
-const ONES_EN = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+const EN_ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
   'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
-const TENS_EN = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-const ORD_ONES_EN = ['zeroth', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth',
-  'eleventh', 'twelfth', 'thirteenth', 'fourteenth', 'fifteenth', 'sixteenth', 'seventeenth', 'eighteenth', 'nineteenth'];
-const ORD_TENS_EN = ['', '', 'twentieth', 'thirtieth', 'fortieth', 'fiftieth', 'sixtieth', 'seventieth', 'eightieth', 'ninetieth'];
-const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const ONES_ID = ['nol', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh',
-  'sebelas', 'dua belas', 'tiga belas', 'empat belas', 'lima belas', 'enam belas', 'tujuh belas', 'delapan belas', 'sembilan belas'];
-const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-const DIR_WORDS = {
-  N: { en: 'north', id: 'utara' }, S: { en: 'south', id: 'selatan' },
-  E: { en: 'east', id: 'timur' }, W: { en: 'west', id: 'barat' },
-};
-// Kata bahasa Inggris umum yang KEBETULAN berupa pola angka Romawi valid
-// (mis. "MIX", "DIM", "LID") - jangan pernah dikonversi otomatis, walau
-// diketik huruf besar semua, supaya kata biasa tidak salah dibaca.
-const ROMAN_FALSE_FRIENDS = new Set(['MIX', 'MID', 'DIM', 'LID', 'CIVIL', 'VIVID', 'LIVID', 'MILD', 'VIM', 'DID']);
-const ROMAN_CONTEXT_WORDS = /\b(chapter|bab|jilid|volume|vol|part|babak|king|ratu|raja|queen|pope|paus|abad|century|kelas)\s*$/i;
+const EN_TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+const EN_SCALES = ['', 'thousand', 'million', 'billion'];
+const EN_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const EN_ORDINAL_IRREGULAR = { one: 'first', two: 'second', three: 'third', five: 'fifth', eight: 'eighth', nine: 'ninth', twelve: 'twelfth' };
+const EN_FRACTION_NAMES = { 2: 'half', 3: 'third', 4: 'quarter', 5: 'fifth', 6: 'sixth', 7: 'seventh', 8: 'eighth', 9: 'ninth', 10: 'tenth' };
 
-function twoDigitWordsEN(n) {
-  if (n < 20) return ONES_EN[n];
-  const tens = Math.floor(n / 10), ones = n % 10;
-  return ones ? `${TENS_EN[tens]}-${ONES_EN[ones]}` : TENS_EN[tens];
+const ID_ONES = ['nol', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh',
+  'sebelas', 'dua belas', 'tiga belas', 'empat belas', 'lima belas', 'enam belas', 'tujuh belas', 'delapan belas', 'sembilan belas'];
+const ID_SCALES = ['', 'ribu', 'juta', 'miliar', 'triliun'];
+const ID_MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+const SUPERSCRIPT_MAP = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
+function superscriptToInt(sup) {
+  return parseInt(sup.split('').map((c) => SUPERSCRIPT_MAP[c] ?? '').join(''), 10);
 }
-function threeDigitWordsEN(n) {
-  const h = Math.floor(n / 100), rest = n % 100;
-  const parts = [];
-  if (h) parts.push(`${ONES_EN[h]} hundred`);
-  if (rest) parts.push((h ? 'and ' : '') + twoDigitWordsEN(rest));
-  return parts.join(' ') || 'zero';
+
+function enUnder100(n) {
+  if (n < 20) return EN_ONES[n];
+  const t = Math.floor(n / 10), r = n % 10;
+  return EN_TENS[t] + (r ? '-' + EN_ONES[r] : '');
 }
-function integerWordsEN(n) {
+function enUnder1000(n) {
+  const h = Math.floor(n / 100), r = n % 100;
+  if (h && r) return EN_ONES[h] + ' hundred ' + enUnder100(r);
+  if (h) return EN_ONES[h] + ' hundred';
+  return enUnder100(r);
+}
+function cardinalEn(nInput) {
+  let n = Math.round(nInput);
   if (n === 0) return 'zero';
-  const neg = n < 0; n = Math.abs(Math.round(n));
-  const groups = []; const scales = ['', 'thousand', 'million', 'billion']; let idx = 0;
-  while (n > 0) {
-    const chunk = n % 1000;
-    if (chunk) groups.unshift(threeDigitWordsEN(chunk) + (scales[idx] ? ' ' + scales[idx] : ''));
-    n = Math.floor(n / 1000); idx++;
-  }
-  return (neg ? 'minus ' : '') + groups.join(' ');
-}
-function ordinalWordsEN(n) {
-  if (n < 20) return ORD_ONES_EN[n];
-  const tens = Math.floor(n / 10), ones = n % 10;
-  return ones === 0 ? ORD_TENS_EN[tens] : `${TENS_EN[tens]}-${ORD_ONES_EN[ones]}`;
-}
-function twoDigitWordsID(n) {
-  if (n < 20) return ONES_ID[n];
-  const tens = Math.floor(n / 10), ones = n % 10;
-  return ones ? `${ONES_ID[tens]} puluh ${ONES_ID[ones]}` : `${ONES_ID[tens]} puluh`;
-}
-function threeDigitWordsID(n) {
-  const h = Math.floor(n / 100), rest = n % 100;
-  const parts = [];
-  if (h === 1) parts.push('seratus'); else if (h) parts.push(`${ONES_ID[h]} ratus`);
-  if (rest) parts.push(twoDigitWordsID(rest));
-  return parts.join(' ') || 'nol';
-}
-function integerWordsID(n) {
-  if (n === 0) return 'nol';
-  const neg = n < 0; n = Math.abs(Math.round(n));
-  const chunks = []; while (n > 0) { chunks.unshift(n % 1000); n = Math.floor(n / 1000); }
-  const scales = ['', 'ribu', 'juta', 'miliar'];
+  const neg = n < 0; n = Math.abs(n);
   const groups = [];
-  chunks.forEach((chunk, i) => {
-    if (!chunk) return;
-    const scale = scales[chunks.length - 1 - i];
-    groups.push(scale === 'ribu' && chunk === 1 ? 'seribu' : threeDigitWordsID(chunk) + (scale ? ' ' + scale : ''));
-  });
+  let scaleIdx = 0;
+  while (n > 0) {
+    const g = n % 1000;
+    if (g) groups.unshift(enUnder1000(g) + (EN_SCALES[scaleIdx] ? ' ' + EN_SCALES[scaleIdx] : ''));
+    n = Math.floor(n / 1000);
+    scaleIdx++;
+  }
   return (neg ? 'minus ' : '') + groups.join(' ');
 }
-function ordinalWordsID(n) {
-  return n === 1 ? 'pertama' : 'ke' + integerWordsID(n);
+function ordinalWordEn(cardinalWord) {
+  if (EN_ORDINAL_IRREGULAR[cardinalWord]) return EN_ORDINAL_IRREGULAR[cardinalWord];
+  if (cardinalWord.endsWith('y')) return cardinalWord.slice(0, -1) + 'ieth';
+  return cardinalWord + 'th';
 }
-function cardinalWords(n, lang) { return lang === 'id' ? integerWordsID(n) : integerWordsEN(n); }
-function ordinalWords(n, lang) { return lang === 'id' ? ordinalWordsID(n) : ordinalWordsEN(n); }
-function digitWord(d, lang) {
-  const en = ['oh', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
-  return lang === 'id' ? ONES_ID[Number(d)] : en[Number(d)];
-}
-function digitsByDigit(str, lang) {
-  return str.split('').filter((c) => /\d/.test(c)).map((d) => digitWord(d, lang)).join(' ');
-}
-function decimalWords(str, lang) {
-  const [intPart, fracPart] = String(str).split('.');
-  const intWords = cardinalWords(Number(intPart), lang);
-  if (fracPart === undefined) return intWords;
-  const fracWords = digitsByDigit(fracPart, lang);
-  return lang === 'id' ? `${intWords} koma ${fracWords}` : `${intWords} point ${fracWords}`;
-}
-function yearWordsEN(y) {
-  if (y % 100 === 0) return y < 2000 ? `${twoDigitWordsEN(Math.floor(y / 100))} hundred` : `${integerWordsEN(y / 1000)} thousand`;
-  const first = Math.floor(y / 100), last = y % 100;
-  const lastWords = last < 10 ? `oh ${ONES_EN[last]}` : twoDigitWordsEN(last);
-  return `${twoDigitWordsEN(first)} ${lastWords}`;
-}
-function superscriptToNumber(s) {
-  const map = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
-  return Number(s.split('').map((c) => map[c] ?? c).join(''));
-}
-function powerPhrase(base, exp, lang) {
-  const baseW = cardinalWords(base, lang);
-  if (lang === 'id') return `${baseW} pangkat ${cardinalWords(Math.abs(exp), lang)}`;
-  if (exp === 2) return `${baseW} squared`;
-  if (exp === 3) return `${baseW} cubed`;
-  return `${baseW} to the power of ${cardinalWords(Math.abs(exp), lang)}`;
-}
-function romanToInt(str) {
-  const map = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
-  let result = 0;
-  for (let i = 0; i < str.length; i++) {
-    const cur = map[str[i]], next = map[str[i + 1]];
-    if (next && cur < next) result -= cur; else result += cur;
+function ordinalEn(n) {
+  const parts = cardinalEn(n).split(' ');
+  const last = parts[parts.length - 1];
+  if (last.includes('-')) {
+    const [a, b] = last.split('-');
+    parts[parts.length - 1] = a + '-' + ordinalWordEn(b);
+  } else {
+    parts[parts.length - 1] = ordinalWordEn(last);
   }
-  return result;
+  return parts.join(' ');
+}
+function fractionEn(num, den) {
+  if (den === 1) return cardinalEn(num);
+  const name = EN_FRACTION_NAMES[den];
+  if (!name) return `${cardinalEn(num)} over ${cardinalEn(den)}`;
+  if (num === 1) return `one ${name}`;
+  return `${cardinalEn(num)} ${name === 'half' ? 'halves' : name + 's'}`;
+}
+function yearWordsEn(y) {
+  // Gaya Inggris: dipecah dua kelompok dua digit (mis. 2026 -> "twenty twenty-six").
+  const first = Math.floor(y / 100), last = y % 100;
+  return `${cardinalEn(first)} ${last === 0 ? 'hundred' : cardinalEn(last)}`;
+}
+function dateWordsEn(day, month, year) {
+  return `the ${ordinalEn(day)} of ${EN_MONTHS[month - 1]} ${yearWordsEn(year)}`;
+}
+
+function idUnder100(n) {
+  if (n < 20) return ID_ONES[n];
+  const t = Math.floor(n / 10), r = n % 10;
+  return ID_ONES[t] + ' puluh' + (r ? ' ' + ID_ONES[r] : '');
+}
+function idUnder1000(n) {
+  const h = Math.floor(n / 100), r = n % 100;
+  if (h === 1) return 'seratus' + (r ? ' ' + idUnder100(r) : '');
+  if (h) return ID_ONES[h] + ' ratus' + (r ? ' ' + idUnder100(r) : '');
+  return idUnder100(r);
+}
+function cardinalId(nInput) {
+  let n = Math.round(nInput);
+  if (n === 0) return 'nol';
+  const neg = n < 0; n = Math.abs(n);
+  const groups = [];
+  let scaleIdx = 0;
+  while (n > 0) {
+    const g = n % 1000;
+    if (g) {
+      const word = (scaleIdx === 1 && g === 1) ? 'seribu' : idUnder1000(g) + (ID_SCALES[scaleIdx] ? ' ' + ID_SCALES[scaleIdx] : '');
+      groups.unshift(word);
+    }
+    n = Math.floor(n / 1000);
+    scaleIdx++;
+  }
+  return (neg ? 'minus ' : '') + groups.join(' ');
+}
+function ordinalId(n) {
+  if (n === 1) return 'pertama';
+  return 'ke' + cardinalId(n);
+}
+function dateWordsId(day, month, year) {
+  return `${cardinalId(day)} ${ID_MONTHS[month - 1]} ${cardinalId(year)}`;
+}
+
+function decimalToWords(numStr, lang) {
+  const [intPart, fracPart] = numStr.split('.');
+  const isId = lang === 'id';
+  const intWords = isId ? cardinalId(+intPart) : cardinalEn(+intPart);
+  const point = isId ? 'koma' : 'point';
+  const fracWords = fracPart.split('').map((d) => (isId ? ID_ONES[+d] : EN_ONES[+d])).join(' ');
+  return `${intWords} ${point} ${fracWords}`;
+}
+function numOrDecimalWords(numStr, lang) {
+  return numStr.includes('.') ? decimalToWords(numStr, lang) : (lang === 'id' ? cardinalId(+numStr) : cardinalEn(+numStr));
+}
+function phoneReading(groups, lang) {
+  const isId = lang === 'id';
+  const wordFn = (d) => (d === '0' ? (isId ? 'nol' : 'oh') : (isId ? ID_ONES[+d] : EN_ONES[+d]));
+  return groups.map((g) => g.split('').map(wordFn).join(' ')).join(', ');
 }
 
 /**
- * Menyusun ulang bilangan/notasi khusus dalam sebuah teks menjadi bentuk
- * yang lazim diucapkan, dalam bahasa Inggris (lang='en') atau Indonesia
- * (lang='id'). Hanya dipakai untuk teks yang dikirim ke mesin suara -
- * bukan untuk teks yang ditampilkan di layar.
+ * Mengubah angka & notasi khusus dalam sebuah teks menjadi kata-kata yang
+ * diucapkan, sesuai bahasa suara (lang: 'en' atau 'id'). Urutan pemrosesan
+ * SENGAJA dari pola paling spesifik ke paling umum, supaya mis. tanggal
+ * "31/07/2026" tidak keburu dibaca sebagai pecahan/pembagian biasa.
  */
-function applySpeechNumberRules(text, lang) {
-  let t = text;
+function expandNumbersForSpeech(input, lang) {
+  const isId = lang === 'id';
+  let t = input;
 
-  // 1) Koordinat: 6°12′S, 106°50′E
-  t = t.replace(/(\d+)°\s?(\d+)[′']\s?([NSEW])/g, (_, deg, min, dir) => {
-    const dirWord = DIR_WORDS[dir][lang === 'id' ? 'id' : 'en'];
-    return lang === 'id'
-      ? `${cardinalWords(+deg, lang)} derajat ${cardinalWords(+min, lang)} menit ${dirWord}`
-      : `${cardinalWords(+deg, lang)} degrees ${cardinalWords(+min, lang)} minutes ${dirWord}`;
+  // Notasi ilmiah: a × 10^n atau a × 10ⁿ
+  t = t.replace(/(\d+(?:\.\d+)?)\s*[×x]\s*10(?:\^(-?\d+)|([⁰¹²³⁴⁵⁶⁷⁸⁹]+))/g, (m, a, expCaret, expSup) => {
+    const exp = expCaret !== undefined ? parseInt(expCaret, 10) : superscriptToInt(expSup);
+    const aWords = numOrDecimalWords(a, lang);
+    return isId ? `${aWords} kali sepuluh pangkat ${cardinalId(exp)}` : `${aWords} times ten to the power of ${cardinalEn(exp)}`;
   });
 
-  // 2) Notasi ilmiah: 1.5 × 10⁸ atau 1.5 x 10^8
-  t = t.replace(/(\d+(?:\.\d+)?)\s*[×x]\s*10\s*(\^-?\d+|[⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, (_, base, exp) => {
-    const expNum = exp.startsWith('^') ? Number(exp.slice(1)) : superscriptToNumber(exp);
-    return lang === 'id'
-      ? `${decimalWords(base, lang)} kali sepuluh pangkat ${cardinalWords(Math.abs(expNum), lang)}`
-      : `${decimalWords(base, lang)} times ten to the power of ${cardinalWords(Math.abs(expNum), lang)}`;
+  // Akar kuadrat: √N
+  t = t.replace(/√\s?(\d+(?:\.\d+)?)/g, (m, n) => {
+    const words = numOrDecimalWords(n, lang);
+    return isId ? `akar kuadrat dari ${words}` : `the square root of ${words}`;
   });
 
-  // 3) Tanggal: 31/07/2026 atau 2026-07-31
-  t = t.replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (_, d, m, y) => {
-    const day = Number(d), month = Number(m), year = Number(y);
-    if (month < 1 || month > 12) return _;
-    return lang === 'id'
-      ? `${cardinalWords(day, lang)} ${MONTHS_ID[month - 1]} ${cardinalWords(year, lang)}`
-      : `the ${ordinalWords(day, lang)} of ${MONTHS_EN[month - 1]} ${yearWordsEN(year)}`;
-  });
-  t = t.replace(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g, (_, y, m, d) => {
-    const day = Number(d), month = Number(m), year = Number(y);
-    if (month < 1 || month > 12) return _;
-    return lang === 'id'
-      ? `${cardinalWords(day, lang)} ${MONTHS_ID[month - 1]} ${cardinalWords(year, lang)}`
-      : `the ${ordinalWords(day, lang)} of ${MONTHS_EN[month - 1]} ${yearWordsEN(year)}`;
+  // Pangkat: N^N, atau superskrip N²,N³,...
+  t = t.replace(/(\d+)\^(\d+)/g, (m, b, e) => (isId ? `${cardinalId(+b)} pangkat ${cardinalId(+e)}` : `${cardinalEn(+b)} to the power of ${cardinalEn(+e)}`));
+  t = t.replace(/(\d+)([²³⁴⁵⁶⁷⁸⁹])/g, (m, b, sup) => {
+    const e = superscriptToInt(sup);
+    return isId ? `${cardinalId(+b)} pangkat ${cardinalId(e)}` : `${cardinalEn(+b)} to the power of ${cardinalEn(e)}`;
   });
 
-  // 4) Nomor telepon: 0812-3456-7890 (dibacakan digit per digit per kelompok)
-  t = t.replace(/\b\d{2,4}(?:-\d{2,4}){2,}\b/g, (m) => m.split('-').map((g) => digitsByDigit(g, lang)).join(', '));
-
-  // 4b) Nomor panjang TANPA pemisah - HP, rekening bank, NIK/KTP, dst
-  //     (089524788977, 320010611890004): 8 digit ke atas dibacakan
-  //     digit per digit per kelompok 4 angka, BUKAN sebagai satu
-  //     bilangan besar. Ini asumsi umum untuk nomor identitas/kontak;
-  //     kalau memang dimaksudkan sebagai bilangan besar (mis. jumlah
-  //     uang tanpa simbol Rp), guru bisa tambah simbol/pemisah supaya
-  //     terbaca sebagai angka biasa.
-  t = t.replace(/\b\d{8,}\b/g, (m) => (m.match(/.{1,4}/g) || [m]).map((g) => digitsByDigit(g, lang)).join(', '));
-
-  // 5) Nomor versi: 2.3.1 (tiga bagian dipisah titik)
-  t = t.replace(/\b(\d+)\.(\d+)\.(\d+)\b/g, (_, a, b, c) => [a, b, c].map((n) => cardinalWords(+n, lang))
-    .join(lang === 'id' ? ' titik ' : ' point '));
-
-  // 6) Dimensi: 10 × 5 × 2 / 10 x 5 x 2
-  t = t.replace(/\b(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\b/g, (_, a, b, c) =>
-    [a, b, c].map((n) => decimalWords(n, lang)).join(lang === 'id' ? ' kali ' : ' by '));
-
-  // 7) Jam: 14:30 (menit selalu 2 digit; jam 0-23) - dibedakan dari
-  //    rasio/skor N:N yang biasanya tidak berpad nol.
-  t = t.replace(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g, (_, h, m) => {
-    const hh = Number(h), mm = Number(m);
-    if (lang === 'id') return `pukul ${cardinalWords(hh, lang)}${mm ? ' ' + cardinalWords(mm, lang) : ''}`;
-    if (!mm) return `${cardinalWords(hh, lang)} o'clock`;
-    const mmWords = mm < 10 ? `oh ${ONES_EN[mm]}` : twoDigitWordsEN(mm);
-    return `${cardinalWords(hh, lang)} ${mmWords}`;
+  // Suhu: N°C / N°F
+  t = t.replace(/(-?\d+(?:\.\d+)?)\s*°\s*([CFcf])(?![a-zA-Z])/g, (m, n, unit) => {
+    const words = numOrDecimalWords(n, lang);
+    const unitWord = unit.toUpperCase() === 'C' ? 'Celsius' : 'Fahrenheit';
+    return isId ? `${words} derajat ${unitWord}` : `${words} degrees ${unitWord}`;
   });
 
-  // 7b) Jam notasi titik ala Indonesia: 06.30 (jam & menit 2 digit,
-  //     dibedakan dari desimal biasa yang jarang berpola 2 digit-2 digit
-  //     dengan nilai jam & menit yang valid sekaligus).
-  t = t.replace(/\b(0[0-9]|1[0-9]|2[0-3])\.([0-5]\d)\b/g, (_, h, m) => {
-    const hh = Number(h), mm = Number(m);
-    if (lang === 'id') return `pukul ${cardinalWords(hh, lang)}${mm ? ' ' + cardinalWords(mm, lang) : ''}`;
-    if (!mm) return `${cardinalWords(hh, lang)} o'clock`;
-    const mmWords = mm < 10 ? `oh ${ONES_EN[mm]}` : twoDigitWordsEN(mm);
-    return `${cardinalWords(hh, lang)} ${mmWords}`;
+  // Tanggal: DD/MM/YYYY
+  t = t.replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (m, d, mo, y) => {
+    const day = +d, month = +mo, year = +y;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return m;
+    return isId ? dateWordsId(day, month, year) : dateWordsEn(day, month, year);
   });
 
-  // 8) Rasio / perbandingan / skor dengan titik dua: 3:2, 2:1
-  t = t.replace(/\b(\d+):(\d+)\b/g, (_, a, b) => lang === 'id'
-    ? `${cardinalWords(+a, lang)} banding ${cardinalWords(+b, lang)}`
-    : `${cardinalWords(+a, lang)} to ${cardinalWords(+b, lang)}`);
+  // Nomor telepon: kelompok digit dipisah tanda hubung (2 tanda hubung+)
+  t = t.replace(/\b(\d{2,4}(?:-\d{2,4}){2,})\b/g, (m) => phoneReading(m.split('-'), lang));
 
-  // 9) Uang dolar: $45.99
-  t = t.replace(/\$\s?(\d+)(?:\.(\d{2}))?/g, (_, dollars, cents) => {
-    const dNum = Number(dollars);
-    let out = lang === 'id' ? `${cardinalWords(dNum, lang)} dolar` : `${cardinalWords(dNum, lang)} dollar${dNum === 1 ? '' : 's'}`;
-    if (cents) {
-      const cNum = Number(cents);
-      out += lang === 'id' ? ` ${cardinalWords(cNum, lang)} sen` : ` and ${cardinalWords(cNum, lang)} cent${cNum === 1 ? '' : 's'}`;
-    }
-    return out;
+  // Mata uang dolar: $N(.NN)?
+  t = t.replace(/\$\s?(\d+)(?:\.(\d{2}))?/g, (m, dollars, cents) => {
+    const d = +dollars, c = cents ? +cents : 0;
+    if (isId) return c ? `${cardinalId(d)} dolar ${cardinalId(c)} sen` : `${cardinalId(d)} dolar`;
+    const out = `${cardinalEn(d)} dollar${d === 1 ? '' : 's'}`;
+    return c ? `${out} and ${cardinalEn(c)} cent${c === 1 ? '' : 's'}` : out;
   });
 
-  // 10) Harga Rupiah: Rp 25.000 (titik sebagai pemisah ribuan)
-  t = t.replace(/Rp\.?\s?([\d.]+)/g, (_, numStr) => `${cardinalWords(Number(numStr.replace(/\./g, '')), lang)} rupiah`);
-
-  // 11) Persentase: 75%
-  t = t.replace(/(\d+(?:\.\d+)?)\s?%/g, (_, num) => lang === 'id' ? `${decimalWords(num, lang)} persen` : `${decimalWords(num, lang)} percent`);
-
-  // 12) Suhu: 28°C / 82°F
-  t = t.replace(/(-?\d+(?:\.\d+)?)\s?°\s?([CF])/g, (_, num, unit) => lang === 'id'
-    ? `${decimalWords(num, lang)} derajat ${unit === 'C' ? 'Celsius' : 'Fahrenheit'}`
-    : `${decimalWords(num, lang)} degrees ${unit === 'C' ? 'Celsius' : 'Fahrenheit'}`);
-
-  // 13) Pangkat: 2³ atau 2^3
-  t = t.replace(/(\d+)([²³⁰¹⁴⁵⁶⁷⁸⁹])/g, (_, base, sup) => powerPhrase(Number(base), superscriptToNumber(sup), lang));
-  t = t.replace(/(\d+)\s*\^\s*(-?\d+)/g, (_, base, exp) => powerPhrase(Number(base), Number(exp), lang));
-
-  // 14) Akar kuadrat: √16
-  t = t.replace(/√\s*(\d+(?:\.\d+)?)/g, (_, num) => lang === 'id' ? `akar kuadrat dari ${decimalWords(num, lang)}` : `the square root of ${decimalWords(num, lang)}`);
-
-  // 14b) Skor / rating desimal per angka: 4.8/5 (bukan pecahan biasa -
-  //      harus ditangani sebelum aturan pecahan & desimal polos di bawah).
-  t = t.replace(/\b(\d+\.\d+)\/(\d+)\b/g, (_, score, out) => lang === 'id'
-    ? `${decimalWords(score, lang)} dari ${cardinalWords(+out, lang)}`
-    : `${decimalWords(score, lang)} out of ${cardinalWords(+out, lang)}`);
-
-  // 15) Pecahan: 3/4
-  t = t.replace(/\b(\d+)\/(\d+)\b/g, (_, num, den) => {
-    const n = Number(num), d = Number(den);
-    if (lang === 'id') {
-      if (n === 1 && d === 2) return 'setengah';
-      if (n === 1 && d === 4) return 'seperempat';
-      return `${cardinalWords(n, lang)} per ${cardinalWords(d, lang)}`;
-    }
-    if (d === 2) return n === 1 ? 'a half' : `${cardinalWords(n, lang)} halves`;
-    if (d === 4) return n === 1 ? 'a quarter' : `${cardinalWords(n, lang)} quarters`;
-    return `${cardinalWords(n, lang)} over ${cardinalWords(d, lang)}`;
+  // Harga Rupiah: Rp N.NNN (titik = pemisah ribuan gaya Indonesia)
+  t = t.replace(/\bRp\s?([\d.]+)\b/g, (m, numStr) => {
+    const value = parseInt(numStr.replace(/\./g, ''), 10);
+    if (Number.isNaN(value)) return m;
+    return isId ? `${cardinalId(value)} rupiah` : `${cardinalEn(value)} rupiah`;
   });
 
-  // 16) Desimal biasa: 3.14, 4.8 (bagian desimal dibaca digit per digit)
-  t = t.replace(/\b(\d+)\.(\d+)\b/g, (_, ip, fp) => decimalWords(`${ip}.${fp}`, lang));
-
-  // 17) Tingkat/ordinal berakhiran st/nd/rd/th: 1st, 3rd, 21st
-  t = t.replace(/\b(\d+)(st|nd|rd|th)\b/gi, (_, num) => ordinalWords(Number(num), lang));
-
-  // 18) Angka Romawi - HANYA saat didahului kata konteks (Bab/Chapter/dll)
-  //     supaya kata Inggris biasa (mis. "MIX") tidak salah terbaca.
-  t = t.replace(/([A-Za-z ]*)\b([MDCLXVI]{2,})\b/g, (whole, before, roman) => {
-    if (ROMAN_FALSE_FRIENDS.has(roman)) return whole;
-    if (!ROMAN_CONTEXT_WORDS.test(before)) return whole;
-    return before + cardinalWords(romanToInt(roman), lang);
+  // Persentase: N%
+  t = t.replace(/(\d+(?:\.\d+)?)\s*%/g, (m, n) => {
+    const words = numOrDecimalWords(n, lang);
+    return isId ? `${words} persen` : `${words} percent`;
   });
 
-  // 19) Bilangan pokok polos (sisa angka yang belum tertangkap aturan di atas)
-  t = t.replace(/\b\d+\b/g, (m) => cardinalWords(Number(m), lang));
+  // Rating/skor dengan pembilang desimal: "4.8/5"
+  t = t.replace(/(\d+\.\d+)\s*\/\s*(\d+)/g, (m, a, b) => {
+    const aWords = decimalToWords(a, lang);
+    return isId ? `${aWords} dari ${cardinalId(+b)}` : `${aWords} out of ${cardinalEn(+b)}`;
+  });
+
+  // Pecahan sederhana (bilangan bulat): N/N
+  t = t.replace(/\b(\d+)\s*\/\s*(\d+)\b/g, (m, a, b) => (isId ? `${cardinalId(+a)} per ${cardinalId(+b)}` : fractionEn(+a, +b)));
+
+  // Nomor versi: N.N.N
+  t = t.replace(/\b(\d+)\.(\d+)\.(\d+)\b/g, (m, a, b, c) => {
+    const point = isId ? 'titik' : 'point';
+    const w = (n) => (isId ? cardinalId(+n) : cardinalEn(+n));
+    return `${w(a)} ${point} ${w(b)} ${point} ${w(c)}`;
+  });
+
+  // Dimensi: N × N (× N)?
+  t = t.replace(/\b(\d+)\s*[×x]\s*(\d+)(?:\s*[×x]\s*(\d+))?\b/g, (m, a, b, c) => {
+    const w = (n) => (isId ? cardinalId(+n) : cardinalEn(+n));
+    const sep = isId ? 'kali' : 'by';
+    return c ? `${w(a)} ${sep} ${w(b)} ${sep} ${w(c)}` : `${w(a)} ${sep} ${w(b)}`;
+  });
+
+  // Jam (HH:MM, jam 0-23 dianggap wajar) vs rasio/skor (selain itu)
+  t = t.replace(/\b(\d{1,2}):(\d{2})\b/g, (m, h, mm) => {
+    const hh = +h, min = +mm;
+    if (hh <= 23) return isId ? `pukul ${cardinalId(hh)} ${cardinalId(min)}` : `${cardinalEn(hh)} ${min === 0 ? "o'clock" : cardinalEn(min)}`;
+    return isId ? `${cardinalId(hh)} banding ${cardinalId(min)}` : `${cardinalEn(hh)} to ${cardinalEn(min)}`;
+  });
+  t = t.replace(/\b(\d+):(\d+)\b/g, (m, a, b) => (isId ? `${cardinalId(+a)} banding ${cardinalId(+b)}` : `${cardinalEn(+a)} to ${cardinalEn(+b)}`));
+
+  // Nomor halaman: "page N" / "halaman N"
+  t = t.replace(/\b(page|halaman)\s+(\d+)\b/gi, (m, word, n) => `${word} ${isId ? cardinalId(+n) : cardinalEn(+n)}`);
+
+  // Umur: "N years old" / "N tahun"
+  t = t.replace(/\b(\d+)\s*years?\s*old\b/gi, (m, n) => `${cardinalEn(+n)} years old`);
+  t = t.replace(/\b(\d+)\s*tahun\b/gi, (m, n) => `${cardinalId(+n)} tahun`);
+
+  // Kecepatan: N km/h
+  t = t.replace(/\b(\d+)\s*km\/h\b/gi, (m, n) => (isId ? `${cardinalId(+n)} kilometer per jam` : `${cardinalEn(+n)} kilometres per hour`));
+
+  // Frekuensi: N bpm / N Hz
+  t = t.replace(/\b(\d+)\s*bpm\b/gi, (m, n) => (isId ? `${cardinalId(+n)} denyut per menit` : `${cardinalEn(+n)} beats per minute`));
+  t = t.replace(/\b(\d+)\s*Hz\b/gi, (m, n) => (isId ? `${cardinalId(+n)} hertz` : `${cardinalEn(+n)} hertz`));
+
+  // Ordinal berakhiran st/nd/rd/th: 1st, 2nd, 3rd, 4th... (termasuk peringkat/ranking)
+  t = t.replace(/\b(\d+)(st|nd|rd|th)\b/gi, (m, n) => ordinalEn(+n));
+
+  // Desimal biasa yang tersisa (dibaca digit demi digit di belakang koma)
+  t = t.replace(/\b\d+\.\d+\b/g, (m) => decimalToWords(m, lang));
+
+  // Sisa angka bulat biasa (kardinal) - termasuk cardinal number & probabilitas pecahan sederhana yang tersisa
+  t = t.replace(/\b\d+\b/g, (m) => (isId ? cardinalId(+m) : cardinalEn(+m)));
 
   return t;
 }
@@ -1109,8 +1087,12 @@ async function synthesizeWithPuter(text, lang) {
   // bicara model AI tidak konsisten (kurang konteks "kalimat selesai").
   // Menambah titik di akhir memberi sedikit konteks tambahan, membantu
   // menstabilkan nada - ini mitigasi, bukan solusi sempurna.
-  let synthText = text;
-  if (lang === 'id' && !/[.!?]$/.test(text.trim())) synthText = text.trim() + '.';
+  // Ubah dulu angka & notasi khusus (desimal, pecahan, persen, mata uang,
+  // suhu, tanggal, dll - lihat KETENTUAN MEMBACA ANGKA di atas) jadi
+  // kata-kata yang diucapkan, sesuai BAHASA SUARA yang dipakai (lang) -
+  // berlaku baik untuk suara Inggris maupun suara terjemahan Indonesia.
+  let synthText = expandNumbersForSpeech(text, lang);
+  if (lang === 'id' && !/[.!?]$/.test(synthText.trim())) synthText = synthText.trim() + '.';
   return await window.puter.ai.txt2speech(synthText, opts); // -> HTMLAudioElement
 }
 
@@ -1178,11 +1160,8 @@ function cacheKeyFor(text, lang) {
  * Mengucapkan sebuah teks (Inggris/Indonesia). Prioritas: tertanam -> cache
  * -> online (Puter.js). Hasil online otomatis disimpan ke cache.
  */
-async function speak(rawText, lang, rate, isStale) {
-  if (!rawText || !rawText.trim() || (isStale && isStale())) return 'skip';
-  // Ketentuan pembacaan angka & format khusus (tanggal, jam, uang, dst) -
-  // hanya memengaruhi teks yang DIUCAPKAN, bukan teks yang tampil di layar.
-  const text = applySpeechNumberRules(rawText, lang);
+async function speak(text, lang, rate, isStale) {
+  if (!text || !text.trim() || (isStale && isStale())) return 'skip';
   const cacheKey = cacheKeyFor(text, lang);
 
   // 1) Sudah tersimpan di HP ini (IndexedDB)? langsung pakai, paling cepat.
@@ -1255,7 +1234,7 @@ async function renderLessonGallery() {
   $('btnClearGallery').style.display = all.length > 0 ? 'block' : 'none';
   $('lessonGallery').innerHTML = all.map((l) => `
     <div class="lesson-row" data-lesson-key="${l.key}"
-         style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid #dfe6e9;width:100%">
+         style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:#fff;border:1px solid #dfe6e9">
       <div data-lesson-load="${l.key}" style="flex:1;cursor:pointer;min-width:0">
         <div style="font-size:12px;font-weight:800;color:#2d3436;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(l.title)}</div>
         <div style="font-size:10px;color:#636e72">${l.wordCount} kata</div>
@@ -1295,6 +1274,7 @@ function renderPreview() {
   $('wordChips').innerHTML = state.words.map((w, i) => `
     <span class="chip" data-widx="${i}">
       <span class="w-en">${escapeHtml(w.original)}</span>
+      ${/\d/.test(w.original) ? `<span class="w-num-en">${escapeHtml(expandNumbersForSpeech(w.original, 'en'))}</span>` : ''}
       <span class="w-phon" data-wphon="${i}">···</span>
       <span class="w-id" data-wtrans="${i}">${shouldSkipWordTranslation(w.lower) ? '—' : '···'}</span>
     </span>`).join('');
@@ -1324,34 +1304,20 @@ async function prefetchPreviewTranslations() {
   const allUniqueWords = [...new Set(state.words.map((w) => w.lower))];
   for (const w of allUniqueWords) {
     if (myToken !== prefetchToken) return;
-    const numeric = isNumericToken(w);
-    let tr = '';
-    let phon = '';
-    if (numeric) {
-      // Angka/notasi khusus (jam, desimal, pecahan, dst) - fonetik &
-      // "terjemahan" diambil dari KETENTUAN PEMBACAAN ANGKA di atas
-      // (applySpeechNumberRules), bukan dari mesin terjemah biasa, karena
-      // mesin terjemah tidak tahu cara membaca angka dengan benar.
-      const enReading = applySpeechNumberRules(w, 'en');
-      const idReading = applySpeechNumberRules(w, 'id');
-      tr = state.inputLang === 'id' ? enReading : idReading;
-      phon = await getPhoneticForPhrase(enReading);
-    } else {
-      const skip = shouldSkipWordTranslation(w);
-      tr = skip ? '' : await translateText(w);
-      if (myToken !== prefetchToken) return;
-      // Fonetik selalu untuk kata Inggris: mode Inggris -> kata aslinya,
-      // mode Indonesia -> hasil terjemahannya (kalau berupa satu kata utuh).
-      let phonWord = '';
-      if (state.inputLang === 'id') {
-        if (tr && /^[A-Za-z']+$/.test(tr.trim())) phonWord = tr.trim().toLowerCase();
-      } else {
-        phonWord = w;
-      }
-      phon = phonWord ? await getPhoneticSpelling(phonWord) : '';
-    }
+    const skip = shouldSkipWordTranslation(w);
+    const tr = skip ? '' : await translateText(w);
     if (myToken !== prefetchToken) return;
-    if (numeric || !shouldSkipWordTranslation(w)) {
+    // Fonetik selalu untuk kata Inggris: mode Inggris -> kata aslinya,
+    // mode Indonesia -> hasil terjemahannya (kalau berupa satu kata utuh).
+    let phonWord = '';
+    if (state.inputLang === 'id') {
+      if (tr && /^[A-Za-z']+$/.test(tr.trim())) phonWord = tr.trim().toLowerCase();
+    } else {
+      phonWord = w;
+    }
+    const phon = phonWord ? await getPhoneticSpelling(phonWord) : '';
+    if (myToken !== prefetchToken) return;
+    if (!skip) {
       document.querySelectorAll(`[data-wtrans]`).forEach((el) => {
         const idx = Number(el.dataset.wtrans);
         if (state.words[idx] && state.words[idx].lower === w) el.textContent = tr || '?';
