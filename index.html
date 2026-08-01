@@ -982,6 +982,15 @@ function applySpeechNumberRules(text, lang) {
   // 4) Nomor telepon: 0812-3456-7890 (dibacakan digit per digit per kelompok)
   t = t.replace(/\b\d{2,4}(?:-\d{2,4}){2,}\b/g, (m) => m.split('-').map((g) => digitsByDigit(g, lang)).join(', '));
 
+  // 4b) Nomor panjang TANPA pemisah - HP, rekening bank, NIK/KTP, dst
+  //     (089524788977, 320010611890004): 8 digit ke atas dibacakan
+  //     digit per digit per kelompok 4 angka, BUKAN sebagai satu
+  //     bilangan besar. Ini asumsi umum untuk nomor identitas/kontak;
+  //     kalau memang dimaksudkan sebagai bilangan besar (mis. jumlah
+  //     uang tanpa simbol Rp), guru bisa tambah simbol/pemisah supaya
+  //     terbaca sebagai angka biasa.
+  t = t.replace(/\b\d{8,}\b/g, (m) => (m.match(/.{1,4}/g) || [m]).map((g) => digitsByDigit(g, lang)).join(', '));
+
   // 5) Nomor versi: 2.3.1 (tiga bagian dipisah titik)
   t = t.replace(/\b(\d+)\.(\d+)\.(\d+)\b/g, (_, a, b, c) => [a, b, c].map((n) => cardinalWords(+n, lang))
     .join(lang === 'id' ? ' titik ' : ' point '));
