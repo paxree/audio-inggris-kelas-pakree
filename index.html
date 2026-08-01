@@ -717,6 +717,20 @@ const phoneticMemory = new Map();
 // berbasis aturan (bukan tebakan AI) - daftar tetap & bisa ditambah.
 const PHONETIC_OVERRIDES = {
   and: ['AE1', 'N', 'D'],
+  // Kamus CMU (data mentah) mencatat sebagian kata "puluhan" ini dengan
+  // konsonan D, bukan T - karena kamus itu memang merekam pengucapan
+  // Amerika yang sangat santai/cepat ("flapping", contoh nyata: "thirty"
+  // sering terdengar seperti "thirdy"). Untuk KELAS/belajar pelafalan
+  // yang jelas, di sini di-override manual supaya tetap bunyi T yang
+  // baku (sama seperti kamus pengucapan standar, mis. Oxford/Cambridge).
+  twenty: ['T', 'W', 'EH1', 'N', 'T', 'IY0'],
+  thirty: ['TH', 'ER1', 'T', 'IY0'],
+  forty: ['F', 'AO1', 'R', 'T', 'IY0'],
+  fifty: ['F', 'IH1', 'F', 'T', 'IY0'],
+  sixty: ['S', 'IH1', 'K', 'S', 'T', 'IY0'],
+  seventy: ['S', 'EH1', 'V', 'AH0', 'N', 'T', 'IY0'],
+  eighty: ['EY1', 'T', 'IY0'],
+  ninety: ['N', 'AY1', 'N', 'T', 'IY0'],
 };
 async function getPhoneticSpelling(word) {
   const key = word.toLowerCase();
