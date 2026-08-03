@@ -796,7 +796,7 @@ function translationDirection() {
 // dalam kalimat). Daftar ini memaksa hasil yang konsisten, dicek SEBELUM
 // memanggil mesin terjemah, baik untuk pratinjau kata maupun kalimat.
 const TRANSLATION_OVERRIDES = {
-  'en|id': { you: 'kamu', pray: 'berdoa' },
+  'en|id': { you: 'kamu' },
 };
 // Mengganti "Anda" (formal) pada hasil terjemahan kalimat menjadi "kamu",
 // KHUSUS saat kalimat sumbernya memang mengandung kata "you" - supaya
@@ -1390,22 +1390,164 @@ const PHRASE_DICTIONARY_EN_ID = {
 // untuk membatasi seberapa jauh pencarian frasa per posisi kata.
 const PHRASE_MAX_LEN = Object.keys(PHRASE_DICTIONARY_EN_ID)
   .reduce((max, k) => Math.max(max, k.split(' ').length), 1);
+// Kumpulan kata pertama dari setiap entri kamus (biasanya kata kerja
+// dasarnya, mis. "get", "wake", "take", "have", "make", "do", "go").
+// Dipakai untuk memvalidasi hasil lematisasi di bawah, dan otomatis
+// ikut bertambah kalau PHRASE_DICTIONARY_EN_ID ditambah entri baru di
+// masa depan - tidak perlu diubah manual.
+const PHRASE_FIRST_WORDS = new Set(
+  Object.keys(PHRASE_DICTIONARY_EN_ID).map((k) => k.split(' ')[0]),
+);
+// Peta bentuk TIDAK BERATURAN (irregular) kata kerja Inggris umum ke
+// bentuk dasarnya (infinitif) - mis. "woke"/"woken"/"wakes" -> "wake",
+// "took"/"taken"/"takes" -> "take", "made"/"makes" -> "make". Dipakai
+// bersama aturan akhiran beraturan di bawah supaya perubahan bentuk
+// kata kerja akibat tenses (past tense, past participle, orang ketiga
+// tunggal) atau gerund (-ing) TETAP dikenali sebagai frasa yang sama
+// di kamus di atas - baik untuk entri yang sudah ada maupun entri baru
+// yang ditambahkan nanti.
+const IRREGULAR_VERB_LEMMAS = {
+  am: 'be', is: 'be', are: 'be', was: 'be', were: 'be', been: 'be', being: 'be',
+  became: 'become', becomes: 'become',
+  began: 'begin', begun: 'begin', begins: 'begin',
+  bent: 'bend', bends: 'bend',
+  bit: 'bite', bitten: 'bite', bites: 'bite',
+  blew: 'blow', blown: 'blow', blows: 'blow',
+  broke: 'break', broken: 'break', breaks: 'break',
+  brought: 'bring', brings: 'bring',
+  built: 'build', builds: 'build',
+  bought: 'buy', buys: 'buy',
+  caught: 'catch', catches: 'catch',
+  chose: 'choose', chosen: 'choose', chooses: 'choose',
+  came: 'come', comes: 'come',
+  cuts: 'cut',
+  did: 'do', does: 'do', done: 'do',
+  drew: 'draw', drawn: 'draw', draws: 'draw',
+  drank: 'drink', drunk: 'drink', drinks: 'drink',
+  drove: 'drive', driven: 'drive', drives: 'drive',
+  ate: 'eat', eaten: 'eat', eats: 'eat',
+  fell: 'fall', fallen: 'fall', falls: 'fall',
+  felt: 'feel', feels: 'feel',
+  fought: 'fight', fights: 'fight',
+  found: 'find', finds: 'find',
+  flew: 'fly', flown: 'fly', flies: 'fly',
+  forgot: 'forget', forgotten: 'forget', forgets: 'forget',
+  forgave: 'forgive', forgiven: 'forgive', forgives: 'forgive',
+  froze: 'freeze', frozen: 'freeze', freezes: 'freeze',
+  got: 'get', gotten: 'get', gets: 'get',
+  gave: 'give', given: 'give', gives: 'give',
+  went: 'go', goes: 'go', gone: 'go',
+  grew: 'grow', grown: 'grow', grows: 'grow',
+  had: 'have', has: 'have',
+  heard: 'hear', hears: 'hear',
+  hid: 'hide', hidden: 'hide', hides: 'hide',
+  hits: 'hit',
+  held: 'hold', holds: 'hold',
+  hurts: 'hurt',
+  kept: 'keep', keeps: 'keep',
+  knew: 'know', known: 'know', knows: 'know',
+  laid: 'lay', lays: 'lay',
+  led: 'lead', leads: 'lead',
+  left: 'leave', leaves: 'leave',
+  lent: 'lend', lends: 'lend',
+  lets: 'let',
+  lay: 'lie', lain: 'lie', lies: 'lie',
+  lost: 'lose', loses: 'lose',
+  made: 'make', makes: 'make',
+  meant: 'mean', means: 'mean',
+  met: 'meet', meets: 'meet',
+  paid: 'pay', pays: 'pay',
+  puts: 'put',
+  reads: 'read',
+  rode: 'ride', ridden: 'ride', rides: 'ride',
+  rang: 'ring', rung: 'ring', rings: 'ring',
+  rose: 'rise', risen: 'rise', rises: 'rise',
+  ran: 'run', runs: 'run',
+  said: 'say', says: 'say',
+  saw: 'see', seen: 'see', sees: 'see',
+  sold: 'sell', sells: 'sell',
+  sent: 'send', sends: 'send',
+  sets: 'set',
+  shook: 'shake', shaken: 'shake', shakes: 'shake',
+  shone: 'shine', shines: 'shine',
+  shot: 'shoot', shoots: 'shoot',
+  showed: 'show', shown: 'show', shows: 'show',
+  shuts: 'shut',
+  sang: 'sing', sung: 'sing', sings: 'sing',
+  sat: 'sit', sits: 'sit',
+  slept: 'sleep', sleeps: 'sleep',
+  spoke: 'speak', spoken: 'speak', speaks: 'speak',
+  spent: 'spend', spends: 'spend',
+  spilt: 'spill', spilled: 'spill', spills: 'spill',
+  stood: 'stand', stands: 'stand',
+  stole: 'steal', stolen: 'steal', steals: 'steal',
+  stuck: 'stick', sticks: 'stick',
+  swam: 'swim', swum: 'swim', swims: 'swim',
+  took: 'take', taken: 'take', takes: 'take',
+  taught: 'teach', teaches: 'teach',
+  told: 'tell', tells: 'tell',
+  thought: 'think', thinks: 'think',
+  threw: 'throw', thrown: 'throw', throws: 'throw',
+  understood: 'understand', understands: 'understand',
+  woke: 'wake', woken: 'wake', wakes: 'wake',
+  wore: 'wear', worn: 'wear', wears: 'wear',
+  won: 'win', wins: 'win',
+  wrote: 'write', written: 'write', writes: 'write',
+};
+// Mengubah satu kata (biasanya kata kerja) ke bentuk dasarnya, supaya
+// gerund (-ing), orang ketiga tunggal (-s/-es), atau past tense/past
+// participle (beraturan maupun tidak) tetap cocok dengan entri di
+// PHRASE_DICTIONARY_EN_ID. Hasil dugaan divalidasi dulu terhadap
+// PHRASE_FIRST_WORDS sebelum dipakai, supaya kata biasa yang bukan
+// bagian dari kamus tidak berubah tanpa alasan.
+function lemmatizeToken(lower) {
+  if (PHRASE_FIRST_WORDS.has(lower)) return lower;
+  if (IRREGULAR_VERB_LEMMAS[lower] && PHRASE_FIRST_WORDS.has(IRREGULAR_VERB_LEMMAS[lower])) {
+    return IRREGULAR_VERB_LEMMAS[lower];
+  }
+  const candidates = [];
+  const pushWithVariants = (stem) => {
+    candidates.push(stem, `${stem}e`);
+    const last = stem[stem.length - 1];
+    if (stem.length > 2 && last === stem[stem.length - 2] && !'aeiou'.includes(last)) {
+      candidates.push(stem.slice(0, -1));
+    }
+  };
+  if (lower.length > 4 && lower.endsWith('ing')) pushWithVariants(lower.slice(0, -3));
+  if (lower.length > 4 && lower.endsWith('ied')) candidates.push(`${lower.slice(0, -3)}y`);
+  else if (lower.length > 3 && lower.endsWith('ed')) pushWithVariants(lower.slice(0, -2));
+  if (lower.length > 4 && lower.endsWith('ies')) candidates.push(`${lower.slice(0, -3)}y`);
+  else if (lower.length > 3 && lower.endsWith('es')) candidates.push(lower.slice(0, -2), lower.slice(0, -1));
+  if (lower.length > 3 && lower.endsWith('s') && !lower.endsWith('ss')) candidates.push(lower.slice(0, -1));
+  for (const c of candidates) {
+    if (PHRASE_FIRST_WORDS.has(c)) return c;
+  }
+  return lower;
+}
 
 // Mengelompokkan token kata hasil parseWords() supaya phrasal verb &
 // collocation yang ada di PHRASE_DICTIONARY_EN_ID tampil sebagai SATU
 // chip/entri di Pratinjau Kata, bukan terpecah per kata. Pencarian
 // dilakukan dari frasa TERPANJANG dulu (greedy longest-match) di tiap
 // posisi, supaya mis. "take a shower" tidak keliru berhenti di "take".
-// Hanya berlaku saat sumbernya bahasa Inggris (mode ID->EN belum
-// menggunakan kamus ini).
+// Kata pertama tiap kandidat frasa dilematisasi dulu (lihat
+// lemmatizeToken), supaya bentuk gerund maupun perubahan akibat tenses
+// (mis. "waking up", "woke up", "wakes up") tetap dikenali sebagai
+// frasa yang sama dengan bentuk dasarnya ("wake up") - tampilan teks
+// aslinya (huruf besar/kecil & bentuk kata) tetap dipertahankan, hanya
+// terjemahan & fonetiknya yang mengikuti entri kamus. Hanya berlaku
+// saat sumbernya bahasa Inggris (mode ID->EN belum menggunakan kamus
+// ini).
 function groupPhrases(words) {
   if (state.inputLang !== 'en') return words;
   const result = [];
   let i = 0;
   while (i < words.length) {
     let matchedLen = 0;
+    const firstLemma = lemmatizeToken(words[i].lower);
     for (let len = Math.min(PHRASE_MAX_LEN, words.length - i); len >= 2; len--) {
-      const key = words.slice(i, i + len).map((w) => w.lower).join(' ');
+      const rest = words.slice(i + 1, i + len).map((w) => w.lower).join(' ');
+      const key = rest ? `${firstLemma} ${rest}` : firstLemma;
       if (Object.prototype.hasOwnProperty.call(PHRASE_DICTIONARY_EN_ID, key)) {
         matchedLen = len;
         break;
@@ -1413,9 +1555,10 @@ function groupPhrases(words) {
     }
     if (matchedLen >= 2) {
       const slice = words.slice(i, i + matchedLen);
+      const rest = slice.slice(1).map((w) => w.lower).join(' ');
       result.push({
         original: slice.map((w) => w.original).join(' '),
-        lower: slice.map((w) => w.lower).join(' '),
+        lower: rest ? `${firstLemma} ${rest}` : firstLemma,
       });
       i += matchedLen;
     } else {
