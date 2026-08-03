@@ -796,7 +796,48 @@ function translationDirection() {
 // dalam kalimat). Daftar ini memaksa hasil yang konsisten, dicek SEBELUM
 // memanggil mesin terjemah, baik untuk pratinjau kata maupun kalimat.
 const TRANSLATION_OVERRIDES = {
-  'en|id': { you: 'kamu' },
+  'en|id': {
+    you: 'kamu',
+    // Frase/kata kerja yang dientri sendirian di satu baris (dianggap satu
+    // "kalimat" oleh mesin) TIDAK diterjemahkan sebagai perintah/imperatif
+    // (mis. "belajarlah"), melainkan tetap bentuk dasar/infinitif, supaya
+    // konsisten dengan hasil di Pratinjau Kata. Nilainya diambil dari
+    // PHRASE_DICTIONARY_EN_ID di bawah - kalau menambah frase baru ke sana
+    // yang juga sering dientri sendirian per baris, tambahkan juga di sini.
+    'get up': 'bangun',
+    'make the bed': 'merapikan tempat tidur',
+    'make my bed': 'merapikan tempat tidur',
+    'prepare for school': 'bersiap-siap ke sekolah',
+    'brush your teeth': 'menggosok gigi',
+    'brush my teeth': 'menggosok gigi',
+    'brush his teeth': 'menggosok gigi',
+    'brush her teeth': 'menggosok gigi',
+    'take a shower': 'mandi',
+    'take a bath': 'mandi',
+    'have breakfast': 'sarapan',
+    'have lunch': 'makan siang',
+    'have dinner': 'makan malam',
+    'get ready for school': 'bersiap-siap ke sekolah',
+    'say goodbye to parents': 'pamit kepada orang tua',
+    'say goodbye to': 'pamit kepada',
+    'say goodbye': 'pamit',
+    'go to school': 'pergi ke sekolah',
+    'go to work': 'pergi bekerja',
+    'go to bed': 'tidur',
+    'get dressed': 'berpakaian',
+    'wash my face': 'mencuci muka',
+    'wash your face': 'mencuci muka',
+    study: 'belajar',
+    eat: 'makan',
+    drink: 'minum',
+    sleep: 'tidur',
+    wake: 'bangun',
+    bathe: 'mandi',
+    clean: 'membersihkan',
+    write: 'menulis',
+    read: 'membaca',
+    wash: 'mencuci',
+  },
 };
 // Mengganti "Anda" (formal) pada hasil terjemahan kalimat menjadi "kamu",
 // KHUSUS saat kalimat sumbernya memang mengandung kata "you" - supaya
@@ -942,6 +983,7 @@ const PHRASE_DICTIONARY_EN_ID = {
   'go out': 'pergi keluar',
   'come on': 'ayo',
   'get ready for school': 'bersiap-siap ke sekolah',
+  'prepare for school': 'bersiap-siap ke sekolah',
   'say goodbye to parents': 'pamit kepada orang tua',
   'say goodbye to': 'pamit kepada',
   'say goodbye': 'pamit',
