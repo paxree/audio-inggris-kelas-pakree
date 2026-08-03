@@ -905,7 +905,16 @@ function parseSentences(text) {
   // bukan akhir kalimat - lindungi dulu dengan penanda sementara sebelum
   // dipecah, supaya "06.30" tidak keliru terpecah jadi "06" dan "30".
   const protectedText = trimmed.replace(/\.(?!\s|$)/g, '\u0000');
-  const parts = protectedText.match(/[^.!?]+[.!?]*/g) || [protectedText];
+  // Baris baru DAN tanda koma juga dianggap batas antar-entri (selain
+  // titik/tanda tanya/seru biasa). Ini penting untuk materi berupa daftar
+  // frase/kata kerja yang dientri satu per baris atau dipisah koma (mis.
+  // "study, eat, drink, ...") - supaya tiap frase/kata tetap tampil sebagai
+  // entri terpisah di Pratinjau Kalimat, bukan tergabung jadi satu blok
+  // teks panjang yang bikin sebagian entri seolah hilang/tidak tampil,
+  // dan supaya override terjemahan bentuk-dasar (INFINITIVE_SENTENCE_OVERRIDES
+  // di bawah) bisa mengenali entri tersebut secara persis.
+  const roughParts = protectedText.split(/\r?\n|,/);
+  const parts = roughParts.flatMap((chunk) => chunk.match(/[^.!?]+[.!?]*/g) || [chunk]);
   return parts.map((p) => p.trim().replace(/\u0000/g, '.')).filter(Boolean);
 }
 
