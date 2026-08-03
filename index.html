@@ -2097,8 +2097,8 @@ function renderPreview() {
     const breakdown = sWords.map((sw) => `
       <span class="wb-item">
         <span class="wb-en">${escapeHtml(sw.original)}</span>
-        <span class="wb-phon" data-swphon="${i}|${sw.lower}">···</span>
-        <span class="wb-id" data-swtrans="${i}|${sw.lower}">${shouldSkipWordTranslation(sw.lower) ? '—' : '···'}</span>
+        <span class="wb-phon" data-swphon="${i}|${sw.lower}|${sw.original.toLowerCase()}">···</span>
+        <span class="wb-id" data-swtrans="${i}|${sw.lower}|${sw.original.toLowerCase()}">${shouldSkipWordTranslation(sw.lower) ? '—' : '···'}</span>
       </span>`).join('');
     return `
     <div class="sentence" data-sidx="${i}">
@@ -2114,8 +2114,19 @@ function renderPreview() {
 let prefetchToken = 0;
 async function prefetchPreviewTranslations() {
   const myToken = ++prefetchToken;
-  const allUniqueWords = [...new Set(state.words.map((w) => w.lower))];
-  for (const w of allUniqueWords) {
+  // Dikelompokkan berdasar PASANGAN (bentuk-dasar-kamus + bentuk-asli-
+  // tertulis), bukan cuma bentuk dasarnya saja - supaya frasa dengan
+  // tenses/gerund berbeda (mis. "waking up" vs "woke up", sama-sama
+  // berarti "wake up" di kamus) tetap mendapat FONETIK masing-masing
+  // sesuai tulisan aslinya, walau terjemahannya sama-sama diambil dari
+  // satu entri kamus yang sama.
+  const uniqueEntries = new Map();
+  for (const w of state.words) {
+    const originalLower = w.original.toLowerCase();
+    const key = `${w.lower}\u0001${originalLower}`;
+    if (!uniqueEntries.has(key)) uniqueEntries.set(key, { lower: w.lower, originalLower });
+  }
+  for (const { lower: w, originalLower } of uniqueEntries.values()) {
     if (myToken !== prefetchToken) return;
     const numeric = isNumericToken(w);
     const isPhrase = Object.prototype.hasOwnProperty.call(PHRASE_DICTIONARY_EN_ID, w);
@@ -2134,9 +2145,12 @@ async function prefetchPreviewTranslations() {
       // Phrasal verb / collocation dari PHRASE_DICTIONARY_EN_ID - terjemahan
       // diambil langsung dari kamus (satu kesatuan makna, mis. "get up"
       // -> "bangun"), bukan diterjemahkan kata per kata via mesin terjemah.
-      // Fonetiknya digabung dari fonetik tiap kata penyusun frasanya.
+      // Fonetiknya HARUS mengikuti bunyi bentuk yang BENAR-BENAR tertulis
+      // (mis. "waking up"), bukan bentuk dasar di kamus ("wake up") -
+      // supaya perubahan akibat gerund/tenses tetap punya fonetiknya
+      // sendiri yang sesuai, walau terjemahannya sama.
       tr = PHRASE_DICTIONARY_EN_ID[w];
-      phon = await getPhoneticForPhrase(w);
+      phon = await getPhoneticForPhrase(originalLower);
     } else {
       const skip = shouldSkipWordTranslation(w);
       tr = skip ? '' : await translateText(w);
@@ -2147,7 +2161,7 @@ async function prefetchPreviewTranslations() {
       if (state.inputLang === 'id') {
         if (tr && /^[A-Za-z']+$/.test(tr.trim())) phonWord = tr.trim().toLowerCase();
       } else {
-        phonWord = w;
+        phonWord = originalLower;
       }
       phon = phonWord ? await getPhoneticSpelling(phonWord) : '';
     }
@@ -2155,16 +2169,18 @@ async function prefetchPreviewTranslations() {
     if (numeric || !shouldSkipWordTranslation(w)) {
       document.querySelectorAll(`[data-wtrans]`).forEach((el) => {
         const idx = Number(el.dataset.wtrans);
-        if (state.words[idx] && state.words[idx].lower === w) el.textContent = tr || '?';
+        const sw = state.words[idx];
+        if (sw && sw.lower === w && sw.original.toLowerCase() === originalLower) el.textContent = tr || '?';
       });
       document.querySelectorAll(`[data-swtrans]`).forEach((el) => {
-        const [, ww] = el.dataset.swtrans.split('|');
-        if (ww === w) el.textContent = tr || '?';
+        const [, ww, oo] = el.dataset.swtrans.split('|');
+        if (ww === w && oo === originalLower) el.textContent = tr || '?';
       });
     }
     document.querySelectorAll(`[data-wphon]`).forEach((el) => {
       const idx = Number(el.dataset.wphon);
-      if (state.words[idx] && state.words[idx].lower === w) el.textContent = phon ? `[${phon}]` : '';
+      const sw = state.words[idx];
+      if (sw && sw.lower === w && sw.original.toLowerCase() === originalLower) el.textContent = phon ? `[${phon}]` : '';
     });
     if (numeric) {
       // Baris tambahan khusus chip angka di Pratinjau Kata: angka dalam
@@ -2177,8 +2193,8 @@ async function prefetchPreviewTranslations() {
       });
     }
     document.querySelectorAll(`[data-swphon]`).forEach((el) => {
-      const [, ww] = el.dataset.swphon.split('|');
-      if (ww === w) el.textContent = phon ? `[${phon}]` : '';
+      const [, ww, oo] = el.dataset.swphon.split('|');
+      if (ww === w && oo === originalLower) el.textContent = phon ? `[${phon}]` : '';
     });
   }
   for (let i = 0; i < state.sentences.length; i++) {
