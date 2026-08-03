@@ -796,48 +796,7 @@ function translationDirection() {
 // dalam kalimat). Daftar ini memaksa hasil yang konsisten, dicek SEBELUM
 // memanggil mesin terjemah, baik untuk pratinjau kata maupun kalimat.
 const TRANSLATION_OVERRIDES = {
-  'en|id': {
-    you: 'kamu',
-    // Frase/kata kerja yang dientri sendirian di satu baris (dianggap satu
-    // "kalimat" oleh mesin) TIDAK diterjemahkan sebagai perintah/imperatif
-    // (mis. "belajarlah"), melainkan tetap bentuk dasar/infinitif, supaya
-    // konsisten dengan hasil di Pratinjau Kata. Nilainya diambil dari
-    // PHRASE_DICTIONARY_EN_ID di bawah - kalau menambah frase baru ke sana
-    // yang juga sering dientri sendirian per baris, tambahkan juga di sini.
-    'get up': 'bangun',
-    'make the bed': 'merapikan tempat tidur',
-    'make my bed': 'merapikan tempat tidur',
-    'prepare for school': 'bersiap-siap ke sekolah',
-    'brush your teeth': 'menggosok gigi',
-    'brush my teeth': 'menggosok gigi',
-    'brush his teeth': 'menggosok gigi',
-    'brush her teeth': 'menggosok gigi',
-    'take a shower': 'mandi',
-    'take a bath': 'mandi',
-    'have breakfast': 'sarapan',
-    'have lunch': 'makan siang',
-    'have dinner': 'makan malam',
-    'get ready for school': 'bersiap-siap ke sekolah',
-    'say goodbye to parents': 'pamit kepada orang tua',
-    'say goodbye to': 'pamit kepada',
-    'say goodbye': 'pamit',
-    'go to school': 'pergi ke sekolah',
-    'go to work': 'pergi bekerja',
-    'go to bed': 'tidur',
-    'get dressed': 'berpakaian',
-    'wash my face': 'mencuci muka',
-    'wash your face': 'mencuci muka',
-    study: 'belajar',
-    eat: 'makan',
-    drink: 'minum',
-    sleep: 'tidur',
-    wake: 'bangun',
-    bathe: 'mandi',
-    clean: 'membersihkan',
-    write: 'menulis',
-    read: 'membaca',
-    wash: 'mencuci',
-  },
+  'en|id': { you: 'kamu' },
 };
 // Mengganti "Anda" (formal) pada hasil terjemahan kalimat menjadi "kamu",
 // KHUSUS saat kalimat sumbernya memang mengandung kata "you" - supaya
@@ -898,24 +857,40 @@ function parseWords(text) {
   const matches = text.match(/[A-Za-z']+|\d+(?:[:.,]\d+)+|\d+/g) || [];
   return matches.map((w) => ({ original: w, lower: w.toLowerCase() }));
 }
+// Sebuah BARIS dianggap "daftar kata/frasa" (bukan kalimat) kalau:
+// 1) baris itu TIDAK mengandung tanda akhir kalimat sungguhan (. ! ?) - titik
+//    dalam notasi jam/desimal (mis. "06.30") dilindungi dulu supaya tidak
+//    keliru dianggap tanda kalimat; dan
+// 2) baris itu berisi minimal 2 unsur yang dipisah koma+spasi (", ").
+// Contoh: "I, you, we, they, he, she, it" atau
+// "Get up, Make the bed, Brush your teeth, Take a shower" - ini hanya untuk
+// Pratinjau Kata, TIDAK ikut dihitung/ditampilkan di Pratinjau Kalimat.
+function isCommaWordList(line) {
+  const trimmedLine = line.trim();
+  if (!trimmedLine) return false;
+  const protectedLine = trimmedLine.replace(/\.(?!\s|$)/g, '\u0000');
+  if (/[.!?]/.test(protectedLine)) return false; // ada tanda akhir kalimat sungguhan
+  const items = trimmedLine.split(/,\s+/).map((s) => s.trim()).filter(Boolean);
+  return items.length >= 2;
+}
 function parseSentences(text) {
   const trimmed = text.trim();
   if (!trimmed) return [];
-  // Titik yang TIDAK diikuti spasi/akhir teks (mis. notasi jam "06.30")
-  // bukan akhir kalimat - lindungi dulu dengan penanda sementara sebelum
-  // dipecah, supaya "06.30" tidak keliru terpecah jadi "06" dan "30".
-  const protectedText = trimmed.replace(/\.(?!\s|$)/g, '\u0000');
-  // Baris baru DAN tanda koma juga dianggap batas antar-entri (selain
-  // titik/tanda tanya/seru biasa). Ini penting untuk materi berupa daftar
-  // frase/kata kerja yang dientri satu per baris atau dipisah koma (mis.
-  // "study, eat, drink, ...") - supaya tiap frase/kata tetap tampil sebagai
-  // entri terpisah di Pratinjau Kalimat, bukan tergabung jadi satu blok
-  // teks panjang yang bikin sebagian entri seolah hilang/tidak tampil,
-  // dan supaya override terjemahan bentuk-dasar (INFINITIVE_SENTENCE_OVERRIDES
-  // di bawah) bisa mengenali entri tersebut secara persis.
-  const roughParts = protectedText.split(/\r?\n|,/);
-  const parts = roughParts.flatMap((chunk) => chunk.match(/[^.!?]+[.!?]*/g) || [chunk]);
-  return parts.map((p) => p.trim().replace(/\u0000/g, '.')).filter(Boolean);
+  const sentences = [];
+  // Proses per baris supaya baris berisi daftar kata/frasa berkoma bisa
+  // dikecualikan tanpa mengganggu baris lain yang memang berupa kalimat utuh.
+  for (const rawLine of trimmed.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (isCommaWordList(line)) continue; // daftar kata/frasa - lewati, sudah cukup di Pratinjau Kata
+    // Titik yang TIDAK diikuti spasi/akhir teks (mis. notasi jam "06.30")
+    // bukan akhir kalimat - lindungi dulu dengan penanda sementara sebelum
+    // dipecah, supaya "06.30" tidak keliru terpecah jadi "06" dan "30".
+    const protectedText = line.replace(/\.(?!\s|$)/g, '\u0000');
+    const parts = protectedText.match(/[^.!?]+[.!?]*/g) || [protectedText];
+    sentences.push(...parts.map((p) => p.trim().replace(/\u0000/g, '.')).filter(Boolean));
+  }
+  return sentences;
 }
 
 // Kamus phrasal verb & collocation bahasa Inggris yang harus dianggap
@@ -992,7 +967,6 @@ const PHRASE_DICTIONARY_EN_ID = {
   'go out': 'pergi keluar',
   'come on': 'ayo',
   'get ready for school': 'bersiap-siap ke sekolah',
-  'prepare for school': 'bersiap-siap ke sekolah',
   'say goodbye to parents': 'pamit kepada orang tua',
   'say goodbye to': 'pamit kepada',
   'say goodbye': 'pamit',
