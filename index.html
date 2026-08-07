@@ -1942,6 +1942,19 @@ const PUTER_EN_OPTS = { provider: 'aws-polly', voice: 'Joanna', engine: 'neural'
 // mendeteksi bahasa langsung dari teksnya sendiri (tidak perlu kode bahasa).
 const PUTER_ID_OPTS = { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts', voice: 'Kore' };
 
+// Kata/frasa PENDEK Bahasa Indonesia (berdiri sendiri, tanpa banyak konteks
+// kalimat) lebih rawan "ketularan" logat Inggris oleh mesin suara
+// multibahasa - mis. "tidur" terdengar "tida", "hari" terdengar "heri",
+// "dan" terdengar "den". Dokumentasi resmi Google untuk model Gemini TTS
+// menyebut logat/aksen dikendalikan lewat INSTRUKSI GAYA BICARA (style
+// prompt) di awal teks, BUKAN otomatis dari bahasa/kode bahasa - ini
+// berbeda dari trik "gandakan huruf r" sebelumnya (yang terbukti tidak
+// berpengaruh) karena ini benar-benar fitur resmi model, bukan trik ejaan.
+// HANYA diterapkan untuk teks pendek (kata/frasa) - kalimat penuh TIDAK
+// disentuh karena sudah terdengar Indonesia dengan baik tanpa ini.
+function isShortPhraseID(text) {
+  return text.trim().split(/\s+/).filter(Boolean).length <= 6;
+}
 async function synthesizeWithPuter(text, lang) {
   if (!window.puter?.ai?.txt2speech) throw new Error('Puter.js belum termuat');
   const opts = lang === 'id' ? PUTER_ID_OPTS : PUTER_EN_OPTS;
@@ -1952,8 +1965,11 @@ async function synthesizeWithPuter(text, lang) {
   // untuk KEDUA bahasa supaya frasa Inggris pendek (mis. "Get up", "Sit
   // down") tidak lagi kepotong di akhir. Titik ini HANYA memengaruhi suara
   // yang diucapkan, bukan teks yang tampil di layar.
-  let synthText = text;
-  if (!/[.!?]$/.test(text.trim())) synthText = text.trim() + '.';
+  let synthText = text.trim();
+  if (!/[.!?]$/.test(synthText)) synthText = synthText + '.';
+  if (lang === 'id' && isShortPhraseID(text)) {
+    synthText = `Ucapkan dengan logat Bahasa Indonesia asli yang jelas dan natural, bukan logat Inggris: ${synthText}`;
+  }
   return await window.puter.ai.txt2speech(synthText, opts); // -> HTMLAudioElement
 }
 
