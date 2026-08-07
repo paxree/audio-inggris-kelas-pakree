@@ -1942,19 +1942,6 @@ const PUTER_EN_OPTS = { provider: 'aws-polly', voice: 'Joanna', engine: 'neural'
 // mendeteksi bahasa langsung dari teksnya sendiri (tidak perlu kode bahasa).
 const PUTER_ID_OPTS = { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts', voice: 'Kore' };
 
-// Suara Gemini ("Kore") kadang melafalkan huruf "r" gaya Inggris/Amerika
-// yang mendatar (tidak bergetar), terutama di akhir kata - misalnya "tidur"
-// terdengar seperti "tidu(r)" pelan, bukan getar "r" ala Indonesia yang
-// jelas. Menggandakan huruf "r" sebelum dikirim ke mesin suara adalah trik
-// umum untuk "memaksa" model TTS generatif mengucapkan bunyi getar/rolled
-// yang lebih tegas. Ini HANYA mengubah teks yang dikirim ke mesin suara -
-// teks yang tampil di layar untuk siswa/orang tua TETAP ejaan normal.
-// Diterapkan di SEMUA posisi (awal, tengah, akhir kata) sesuai permintaan,
-// supaya konsisten ala Indonesia di semua kondisi.
-function trillRIndonesian(text) {
-  return text.replace(/[rR]/g, (m) => m + m);
-}
-
 async function synthesizeWithPuter(text, lang) {
   if (!window.puter?.ai?.txt2speech) throw new Error('Puter.js belum termuat');
   const opts = lang === 'id' ? PUTER_ID_OPTS : PUTER_EN_OPTS;
@@ -1966,8 +1953,7 @@ async function synthesizeWithPuter(text, lang) {
   // down") tidak lagi kepotong di akhir. Titik ini HANYA memengaruhi suara
   // yang diucapkan, bukan teks yang tampil di layar.
   let synthText = text;
-  if (lang === 'id') synthText = trillRIndonesian(synthText);
-  if (!/[.!?]$/.test(synthText.trim())) synthText = synthText.trim() + '.';
+  if (!/[.!?]$/.test(text.trim())) synthText = text.trim() + '.';
   return await window.puter.ai.txt2speech(synthText, opts); // -> HTMLAudioElement
 }
 
