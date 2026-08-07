@@ -1942,18 +1942,17 @@ const PUTER_EN_OPTS = { provider: 'aws-polly', voice: 'Joanna', engine: 'neural'
 // mendeteksi bahasa langsung dari teksnya sendiri (tidak perlu kode bahasa).
 const PUTER_ID_OPTS = { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts', voice: 'Kore' };
 
-// Kata/frasa PENDEK Bahasa Indonesia (berdiri sendiri, tanpa banyak konteks
-// kalimat) lebih rawan "ketularan" logat Inggris oleh mesin suara
-// multibahasa - mis. "tidur" terdengar "tida", "hari" terdengar "heri",
-// "dan" terdengar "den". Dokumentasi resmi Google untuk model Gemini TTS
-// menyebut logat/aksen dikendalikan lewat INSTRUKSI GAYA BICARA (style
-// prompt) di awal teks, BUKAN otomatis dari bahasa/kode bahasa - ini
-// berbeda dari trik "gandakan huruf r" sebelumnya (yang terbukti tidak
-// berpengaruh) karena ini benar-benar fitur resmi model, bukan trik ejaan.
-// HANYA diterapkan untuk teks pendek (kata/frasa) - kalimat penuh TIDAK
-// disentuh karena sudah terdengar Indonesia dengan baik tanpa ini.
-function isShortPhraseID(text) {
-  return text.trim().split(/\s+/).filter(Boolean).length <= 6;
+// Frasa Inggris PENDEK tanpa tanda baca akhir (mis. "Get up", "Sit down",
+// "Wake up") - ini ciri entri kata/frasa (Pratinjau Kata), BUKAN kalimat
+// utuh. Frasa sependek ini kadang membuat suku kata TERAKHIR terdengar
+// "tertelan"/nyaris tak terdengar (mis. "Get up" jadi seperti hanya
+// "Get") karena mesin TTS mengucapkannya terlalu menyatu/cepat tanpa jeda.
+// Menyisipkan koma di antara kata (HANYA untuk teks yang dikirim ke mesin
+// suara, teks yang tampil di layar tetap apa adanya) memberi sinyal jeda
+// yang lebih tegas antar kata.
+function isShortPhraseEN(text) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  return words.length >= 2 && words.length <= 6 && !/[.!?]$/.test(text.trim());
 }
 async function synthesizeWithPuter(text, lang) {
   if (!window.puter?.ai?.txt2speech) throw new Error('Puter.js belum termuat');
@@ -1966,10 +1965,10 @@ async function synthesizeWithPuter(text, lang) {
   // down") tidak lagi kepotong di akhir. Titik ini HANYA memengaruhi suara
   // yang diucapkan, bukan teks yang tampil di layar.
   let synthText = text.trim();
-  if (!/[.!?]$/.test(synthText)) synthText = synthText + '.';
-  if (lang === 'id' && isShortPhraseID(text)) {
-    synthText = `Ucapkan dengan logat Bahasa Indonesia asli yang jelas dan natural, bukan logat Inggris: ${synthText}`;
+  if (lang === 'en' && isShortPhraseEN(synthText)) {
+    synthText = synthText.split(/\s+/).join(', ');
   }
+  if (!/[.!?]$/.test(synthText)) synthText = synthText + '.';
   return await window.puter.ai.txt2speech(synthText, opts); // -> HTMLAudioElement
 }
 
