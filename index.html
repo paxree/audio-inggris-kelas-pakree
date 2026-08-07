@@ -1940,7 +1940,18 @@ const PUTER_EN_OPTS = { provider: 'aws-polly', voice: 'Joanna', engine: 'neural'
 // Amazon Polly TIDAK mendukung Bahasa Indonesia (dicek di daftar bahasa
 // resminya - id-ID tidak ada). Pakai Gemini untuk suara Indonesia, yang
 // mendeteksi bahasa langsung dari teksnya sendiri (tidak perlu kode bahasa).
-const PUTER_ID_OPTS = { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts', voice: 'Kore' };
+// "instructions" adalah parameter RESMI Puter.js yang terpisah dari teks
+// yang diucapkan (BUKAN digabung jadi satu kalimat seperti percobaan
+// sebelumnya yang gagal) - jadi tidak ikut terbaca sebagai suara, hanya
+// memengaruhi GAYA bicaranya. Ini yang membuat logat Indonesia lebih
+// konsisten & natural untuk SEMUA teks Indonesia (kata, frasa, maupun
+// kalimat), sekarang dan yang akan datang, tanpa perlu ubah teks tiap kali.
+const PUTER_ID_OPTS = {
+  provider: 'gemini',
+  model: 'gemini-2.5-flash-preview-tts',
+  voice: 'Kore',
+  instructions: 'Ucapkan dengan logat Bahasa Indonesia asli yang jelas dan natural, bukan logat Inggris.',
+};
 
 // Frasa Inggris PENDEK tanpa tanda baca akhir (mis. "Get up", "Sit down",
 // "Wake up") - ini ciri entri kata/frasa (Pratinjau Kata), BUKAN kalimat
