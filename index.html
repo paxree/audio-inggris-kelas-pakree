@@ -223,6 +223,18 @@
       <button class="btn-download-voice" id="btnGenerateAll" style="background:#00B894;width:100%">🎬 Buat Semua Suara Sekarang</button>
       <div class="progress-outer" id="genAllProgressOuter"><div class="progress-inner" id="genAllProgressInner" style="background:#00B894"></div></div>
       <div class="voice-note" id="genAllNote"></div>
+      <div style="font-size:11px;color:#636e72;margin-top:10px">
+        Kalau ada suara yang terlanjur salah/terpotong (mis. sudah dibuat SEBELUM
+        perbaikan kode terbaru), tombol "Buat Semua Suara" di atas TIDAK akan
+        membuat ulang otomatis (supaya suara yang sudah ada tidak dibuang percuma).
+        Tekan tombol di bawah ini untuk menghapus cache suara di HP/laptop INI
+        saja, lalu tekan "Buat Semua Suara Sekarang" lagi untuk membuat ulang
+        dengan perbaikan terbaru. Kalau file lama juga sudah pernah diunggah ke
+        folder audio/ di server, file lama di server itu perlu dihapus manual
+        juga supaya benar-benar tergantikan.
+      </div>
+      <button class="btn-download-voice" id="btnClearAudioCache" style="background:#d63031;width:100%;margin-top:6px">🗑️ Hapus Cache Suara di HP/Laptop Ini</button>
+      <div class="voice-note" id="clearCacheNote"></div>
     </div>
   </div>
 
@@ -418,6 +430,16 @@ const AudioCache = (() => {
       } catch { return []; }
     },
     async getDbHandle() { return await getDb(); },
+    async clearAllClips() {
+      try {
+        const db = await getDb();
+        return await new Promise((resolve) => {
+          const tx = db.transaction('clips', 'readwrite').objectStore('clips').clear();
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => { console.warn('Gagal hapus cache suara (tx.onerror):', tx.error); resolve(false); };
+        });
+      } catch (err) { console.warn('Gagal hapus cache suara (exception):', err); return false; }
+    },
   };
 })();
 
@@ -1923,12 +1945,15 @@ const PUTER_ID_OPTS = { provider: 'gemini', model: 'gemini-2.5-flash-preview-tts
 async function synthesizeWithPuter(text, lang) {
   if (!window.puter?.ai?.txt2speech) throw new Error('Puter.js belum termuat');
   const opts = lang === 'id' ? PUTER_ID_OPTS : PUTER_EN_OPTS;
-  // Kata tunggal Bahasa Indonesia tanpa tanda baca cenderung membuat gaya
-  // bicara model AI tidak konsisten (kurang konteks "kalimat selesai").
-  // Menambah titik di akhir memberi sedikit konteks tambahan, membantu
-  // menstabilkan nada - ini mitigasi, bukan solusi sempurna.
+  // Teks pendek (terutama frasa 2-3 kata seperti "Get up") tanpa tanda baca
+  // akhir cenderung membuat mesin TTS neural "memotong tipis" suku kata/kata
+  // terakhir - karena model tidak diberi sinyal "kalimat selesai". Dulu
+  // mitigasi ini hanya diterapkan untuk Bahasa Indonesia; sekarang berlaku
+  // untuk KEDUA bahasa supaya frasa Inggris pendek (mis. "Get up", "Sit
+  // down") tidak lagi kepotong di akhir. Titik ini HANYA memengaruhi suara
+  // yang diucapkan, bukan teks yang tampil di layar.
   let synthText = text;
-  if (lang === 'id' && !/[.!?]$/.test(text.trim())) synthText = text.trim() + '.';
+  if (!/[.!?]$/.test(text.trim())) synthText = text.trim() + '.';
   return await window.puter.ai.txt2speech(synthText, opts); // -> HTMLAudioElement
 }
 
@@ -1988,8 +2013,32 @@ const RATE_NORMAL = 1;
 const RATE_SLOW = 0.7;
 const RATE_VERY_SLOW = 0.5;
 
+// Mengubah teks menjadi potongan nama file yang MUDAH DIBACA MANUSIA (mis.
+// "Get up" -> "get_up", "Bersiap-siap ke sekolah" -> "bersiap_siap_ke_sekolah").
+// Tujuannya supaya saat ada RATUSAN file suara di folder audio/, guru bisa
+// langsung mencari/memilih file berdasarkan NAMA (isi teksnya), bukan
+// menebak-nebak dari kode acak yang tidak berarti apa-apa.
+function slugifyForFilename(text) {
+  let s = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, ''); // buang aksen/diakritik kalau ada
+  s = s.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  if (!s) s = 'suara';
+  // Batasi panjang supaya nama file tidak kepanjangan untuk kalimat panjang,
+  // tapi tetap cukup untuk langsung dikenali isinya sekilas.
+  if (s.length > 60) s = s.slice(0, 60).replace(/_+$/, '');
+  return s;
+}
+// Kunci cache/nama file: SLUG TEKS (mudah dibaca & dicari) + kode singkat 4
+// karakter di ujung (dari hash) supaya dua teks berbeda yang kebetulan
+// terpotong jadi slug yang sama tetap tidak saling menimpa. Bagian besar
+// nama file tetap terbaca sebagai teksnya sendiri.
 function cacheKeyFor(text, lang) {
-  return `${lang}_${hashKey(text)}`;
+  const slug = slugifyForFilename(text);
+  const shortCode = hashKey(text).slice(0, 4);
+  return `${lang}_${slug}_${shortCode}`;
 }
 
 /**
@@ -2680,6 +2729,16 @@ document.querySelectorAll('.btn-phon-table').forEach((btn) => {
 $('btnClosePhonTable').addEventListener('click', closePhonTable);
 $('phonTableOverlay').addEventListener('click', (e) => {
   if (e.target === $('phonTableOverlay')) closePhonTable();
+});
+$('btnClearAudioCache').addEventListener('click', async () => {
+  const note = $('clearCacheNote');
+  const ok = window.confirm('Hapus SEMUA cache suara yang tersimpan di HP/laptop ini? Suara akan dibuat ulang otomatis saat dibutuhkan lagi (perlu internet & Mode Guru untuk membuat yang baru).');
+  if (!ok) return;
+  note.textContent = 'Menghapus cache...';
+  const success = await AudioCache.clearAllClips();
+  note.textContent = success
+    ? '✅ Cache suara di perangkat ini sudah bersih. Tekan "Buat Semua Suara Sekarang" untuk membuat ulang dengan perbaikan terbaru.'
+    : '❌ Gagal menghapus cache. Coba lagi.';
 });
 $('btnGenerateAll').addEventListener('click', async () => {
   // Pastikan login DULU, dipicu langsung oleh klik tombol ini (bukan di
