@@ -817,8 +817,19 @@ function translationDirection() {
 // (mis. "you" kadang jadi "Anda" saat berdiri sendiri, kadang "kamu" saat
 // dalam kalimat). Daftar ini memaksa hasil yang konsisten, dicek SEBELUM
 // memanggil mesin terjemah, baik untuk pratinjau kata maupun kalimat.
+// Kuncinya dicocokkan PERSIS (huruf besar/kecil diabaikan, spasi awal/akhir
+// dibuang) terhadap SELURUH teks - jadi bisa juga dipakai untuk MENGUNCI
+// terjemahan SATU KALIMAT UTUH tertentu (bukan cuma satu kata), kalau guru
+// ingin hasil terjemahan yang berbeda dari tebakan mesin terjemah untuk
+// kalimat spesifik itu saja. Kalimat lain yang mirip tapi tidak PERSIS sama
+// (beda tanda baca/spasi/huruf besar-kecil) TETAP diterjemahkan otomatis
+// seperti biasa oleh mesin terjemah, tidak ikut terpengaruh.
 const TRANSLATION_OVERRIDES = {
-  'en|id': { you: 'kamu' },
+  'en|id': {
+    you: 'kamu',
+    'before school in the morning, i usually start my day by waking up early in the morning and praying.':
+      'Sebelum berangkat sekolah, biasanya aku memulai hariku dengan bangun pagi-pagi dan melaksanakan salat.',
+  },
 };
 // Mengganti "Anda" (formal) pada hasil terjemahan kalimat menjadi "kamu",
 // KHUSUS saat kalimat sumbernya memang mengandung kata "you" - supaya
@@ -922,6 +933,7 @@ function parseSentences(text) {
 // Kunci ditulis huruf kecil, dipisah satu spasi - tinggal tambah baris
 // baru untuk memperluas daftarnya.
 const PHRASE_DICTIONARY_EN_ID = {
+  'sweeping': 'menyapu',
   'get up': 'bangun',
   'wake up': 'bangun tidur',
   'take a shower': 'mandi',
