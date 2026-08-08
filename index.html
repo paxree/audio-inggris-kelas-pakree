@@ -82,9 +82,6 @@
   .sentence.active .en { color:#fff; font-size:18px; }
   .sentence .id { font-size:13px; margin-top:4px; color:#636e72; font-style:italic; }
   .sentence.active .id { color:#DFF7E3; }
-  .sentence .id .added-note { border-bottom:2px dotted #e17055; cursor:pointer; font-style:normal; }
-  .sentence.active .id .added-note { border-bottom-color:#FFE8B8; }
-  .sentence .id .note-icon { font-size:11px; margin-left:1px; cursor:pointer; }
   .sentence .word-breakdown { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; padding-top:6px; border-top:1px dashed #dfe6e9; }
   .sentence.active .word-breakdown { border-top-color:rgba(255,255,255,.4); }
   .sentence .wb-item { display:flex; flex-direction:column; align-items:center; min-width:42px; }
@@ -837,79 +834,6 @@ function applyTranslationOverrides(sourceText, result, sl, tl) {
     });
   }
   return result;
-}
-
-// Kadang mesin terjemah MENAMBAHKAN kata di hasil terjemahan Indonesia
-// yang tidak ada padanan literalnya di kalimat Inggris asli (supaya
-// maknanya lebih jelas/natural - lihat diskusi soal "berangkat" pada
-// kalimat "before school in the morning..."). Ini BUKAN kesalahan, tapi
-// bisa membingungkan anak pemula kalau tidak dijelaskan. Daftar ini
-// murni MANUAL (guru/pengelola yang menandai satu-satu, bukan deteksi
-// otomatis) - supaya penjelasannya selalu pasti benar, tidak menebak.
-// Kunci: kalimat SUMBER apa adanya, huruf kecil semua, sudah di-trim.
-// Value: daftar kata (di teks HASIL TERJEMAHAN, huruf kecil) beserta
-// catatan singkat kenapa kata itu ada.
-const SENTENCE_ADDED_WORD_NOTES = {
-  'before school in the morning, i usually start my day by waking up early in the morning and praying.': [
-    {
-      word: 'berangkat',
-      note: 'Kata "berangkat" ditambahkan supaya maknanya lebih jelas - kalimat Inggrisnya cuma menulis "before school", tidak ada kata "going/leaving".',
-    },
-  ],
-};
-// Menyisipkan garis putus-putus di kata yang ada di SENTENCE_ADDED_WORD_NOTES
-// untuk kalimat ini, plus simbol kecil "ⓘ" yang bisa DIKETUK untuk melihat
-// catatannya (lewat baris status yang sudah ada - lihat listener klik
-// #sentenceList). Kalau kalimat ini tidak punya catatan apa pun, hasilnya
-// SAMA PERSIS seperti sebelumnya (teks polos ter-escape, tanpa penanda).
-function annotateAddedWords(sourceSentence, translatedText) {
-  const notes = SENTENCE_ADDED_WORD_NOTES[sourceSentence.trim().toLowerCase()];
-  let html = escapeHtml(translatedText);
-  if (!notes || !notes.length) return html;
-  notes.forEach((entry, idx) => {
-    const safeWord = entry.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`\\b(${safeWord})\\b`, 'i');
-    html = html.replace(re, (m) => `<span class="added-note">${m}</span><i class="note-icon" data-note-idx="${idx}">ⓘ</i>`);
-  });
-  return html;
-}
-
-// Beberapa kata Inggris punya makna ganda (mis. "sweeping" = "luas" ATAU
-// "menyapu", tergantung kalimatnya - lihat diskusi). Menerjemahkan kata
-// itu SENDIRIAN tanpa konteks kalimat bisa salah pilih makna. Daftar ini
-// kamus koreksi MANUAL, tapi kuncinya kalimat SUMBER + kata (bukan cuma
-// kata sendirian) - supaya kata yang sama boleh punya arti BERBEDA di
-// kalimat yang berbeda tanpa saling menabrak (lihat diskusi soal risiko
-// tabrakan kamus kata tunggal).
-const SENTENCE_WORD_TRANSLATIONS = {
-  'en|id': {
-    'then, i help my parents with small chores like sweeping the floor.|sweeping': 'menyapu',
-  },
-};
-function sentenceWordTranslationOverride(sourceSentence, word) {
-  const { sl, tl } = translationDirection();
-  const table = SENTENCE_WORD_TRANSLATIONS[`${sl}|${tl}`];
-  if (!table) return null;
-  const key = `${sourceSentence.trim().toLowerCase()}|${word.toLowerCase()}`;
-  return Object.prototype.hasOwnProperty.call(table, key) ? table[key] : null;
-}
-// Untuk daftar kata bebas di Pratinjau Kata (tidak terikat satu kalimat
-// tertentu): override hanya dipakai kalau kata itu HANYA muncul di SATU
-// kalimat yang punya catatan konteks (aman/tidak ambigu). Kalau kata yang
-// sama muncul di beberapa kalimat dengan catatan yang beda, override
-// TIDAK dipakai di sini (supaya tidak salah tempel ke kalimat yang
-// konteksnya berbeda) - terjemahan umum (mesin terjemah biasa) yang tetap
-// dipakai untuk kasus itu.
-function uniqueSentenceWordTranslationOverride(word) {
-  let found = null;
-  for (const s of state.sentences) {
-    const val = sentenceWordTranslationOverride(s, word);
-    if (val) {
-      if (found && found !== val) return null;
-      found = val;
-    }
-  }
-  return found;
 }
 
 async function translateText(text) {
@@ -1931,13 +1855,15 @@ function applySpeechNumberRules(text, lang) {
 
   // 7) Jam: 14:30 (menit selalu 2 digit; jam 0-23) - dibedakan dari
   //    rasio/skor N:N yang biasanya tidak berpad nol.
-  //    Kata "pukul" kadang SUDAH ada di teks asli sebelum angka jamnya
-  //    (mis. "pukul 06.30") - bagian "(?:pukul\s+)?" di bawah ini
-  //    menyerap kata itu ke dalam hasil tangkapan supaya TIDAK dobel
-  //    dengan "pukul" yang ditambahkan otomatis di bacaan Indonesia.
-  t = t.replace(/\b(?:pukul\s+)?([01]?\d|2[0-3]):([0-5]\d)\b/gi, (_, h, m) => {
+  //    Kalau kata "pukul"/"jam" SUDAH ada tepat sebelum angkanya di teks
+  //    asli, kata itu ikut ditangkap & dipakai ulang APA ADANYA - supaya
+  //    tidak dobel jadi "pukul pukul...".
+  t = t.replace(/\b(?:(pukul|jam)[ \t]+)?([01]?\d|2[0-3]):([0-5]\d)\b/gi, (_, prefixWord, h, m) => {
     const hh = Number(h), mm = Number(m);
-    if (lang === 'id') return `pukul ${cardinalWords(hh, lang)}${mm ? ' ' + cardinalWords(mm, lang) : ''}`;
+    if (lang === 'id') {
+      const numWords = `${cardinalWords(hh, lang)}${mm ? ' ' + cardinalWords(mm, lang) : ''}`;
+      return prefixWord ? `${prefixWord} ${numWords}` : `pukul ${numWords}`;
+    }
     if (!mm) return `${cardinalWords(hh, lang)} o'clock`;
     const mmWords = mm < 10 ? `oh ${ONES_EN[mm]}` : twoDigitWordsEN(mm);
     return `${cardinalWords(hh, lang)} ${mmWords}`;
@@ -1946,11 +1872,16 @@ function applySpeechNumberRules(text, lang) {
   // 7b) Jam notasi titik ala Indonesia: 06.30 (jam & menit 2 digit,
   //     dibedakan dari desimal biasa yang jarang berpola 2 digit-2 digit
   //     dengan nilai jam & menit yang valid sekaligus).
-  //     Sama seperti aturan 7 di atas: serap kata "pukul" kalau sudah
-  //     ada di teks aslinya, supaya tidak terbaca dobel ("pukul pukul...").
-  t = t.replace(/\b(?:pukul\s+)?(0[0-9]|1[0-9]|2[0-3])\.([0-5]\d)\b/gi, (_, h, m) => {
+  //     Kalau kata "pukul"/"jam" SUDAH ada tepat sebelum angkanya di teks
+  //     asli (mis. "pada pukul 06.30"), kata itu ikut ditangkap dalam
+  //     match ini dan dipakai ulang APA ADANYA - supaya tidak dobel jadi
+  //     "pukul pukul enam tiga puluh".
+  t = t.replace(/\b(?:(pukul|jam)[ \t]+)?(0[0-9]|1[0-9]|2[0-3])\.([0-5]\d)\b/gi, (_, prefixWord, h, m) => {
     const hh = Number(h), mm = Number(m);
-    if (lang === 'id') return `pukul ${cardinalWords(hh, lang)}${mm ? ' ' + cardinalWords(mm, lang) : ''}`;
+    if (lang === 'id') {
+      const numWords = `${cardinalWords(hh, lang)}${mm ? ' ' + cardinalWords(mm, lang) : ''}`;
+      return prefixWord ? `${prefixWord} ${numWords}` : `pukul ${numWords}`;
+    }
     if (!mm) return `${cardinalWords(hh, lang)} o'clock`;
     const mmWords = mm < 10 ? `oh ${ONES_EN[mm]}` : twoDigitWordsEN(mm);
     return `${cardinalWords(hh, lang)} ${mmWords}`;
@@ -2013,23 +1944,6 @@ function applySpeechNumberRules(text, lang) {
   t = t.replace(/\b\d+\b/g, (m) => cardinalWords(Number(m), lang));
 
   return t;
-}
-
-// Beberapa kata Indonesia terdengar SALAH diucapkan mesin suara (mis.
-// "berdoa" terdengar seperti "berboa"). Daftar ini HANYA memengaruhi teks
-// yang dikirim ke mesin suara, BUKAN teks yang tampil di layar - tinggal
-// tambah baris baru kalau ditemukan kata lain yang salah ucap. Pakai
-// penanda suku kata (tanda hubung) supaya mesin suara memberi jeda kecil
-// antar suku kata dan tidak salah gabung bunyinya.
-const ID_PRONUNCIATION_FIXES = {
-  berdoa: 'ber-doa',
-};
-function applyIdPronunciationFixes(text) {
-  return text.replace(/\b[A-Za-z']+\b/g, (word) => {
-    const fix = ID_PRONUNCIATION_FIXES[word.toLowerCase()];
-    if (!fix) return word;
-    return word[0] === word[0].toUpperCase() ? fix.charAt(0).toUpperCase() + fix.slice(1) : fix;
-  });
 }
 
 // ---------------------------------------------------------------------
@@ -2174,8 +2088,7 @@ async function speak(rawText, lang, rate, isStale) {
   if (!rawText || !rawText.trim() || (isStale && isStale())) return 'skip';
   // Ketentuan pembacaan angka & format khusus (tanggal, jam, uang, dst) -
   // hanya memengaruhi teks yang DIUCAPKAN, bukan teks yang tampil di layar.
-  let text = applySpeechNumberRules(rawText, lang);
-  if (lang === 'id') text = applyIdPronunciationFixes(text);
+  const text = applySpeechNumberRules(rawText, lang);
   const cacheKey = cacheKeyFor(text, lang);
 
   // 1) Sudah tersimpan di HP ini (IndexedDB)? langsung pakai, paling cepat.
@@ -2354,7 +2267,7 @@ async function prefetchPreviewTranslations() {
       phon = await getPhoneticForPhrase(originalLower);
     } else {
       const skip = shouldSkipWordTranslation(w);
-      tr = skip ? '' : (uniqueSentenceWordTranslationOverride(w) || await translateText(w));
+      tr = skip ? '' : await translateText(w);
       if (myToken !== prefetchToken) return;
       // Fonetik selalu untuk kata Inggris: mode Inggris -> kata aslinya,
       // mode Indonesia -> hasil terjemahannya (kalau berupa satu kata utuh).
@@ -2374,11 +2287,8 @@ async function prefetchPreviewTranslations() {
         if (sw && sw.lower === w && sw.original.toLowerCase() === originalLower) el.textContent = tr || '?';
       });
       document.querySelectorAll(`[data-swtrans]`).forEach((el) => {
-        const [si, ww, oo] = el.dataset.swtrans.split('|');
-        if (ww === w && oo === originalLower) {
-          const sentenceOverride = sentenceWordTranslationOverride(state.sentences[Number(si)] || '', w);
-          el.textContent = sentenceOverride || tr || '?';
-        }
+        const [, ww, oo] = el.dataset.swtrans.split('|');
+        if (ww === w && oo === originalLower) el.textContent = tr || '?';
       });
     }
     document.querySelectorAll(`[data-wphon]`).forEach((el) => {
@@ -2406,7 +2316,7 @@ async function prefetchPreviewTranslations() {
     const tr = await translateText(state.sentences[i]);
     if (myToken !== prefetchToken) return;
     const el = document.querySelector(`[data-strans="${i}"]`);
-    if (el) el.innerHTML = tr ? annotateAddedWords(state.sentences[i], tr) : '?';
+    if (el) el.textContent = tr || '?';
   }
 }
 
@@ -2509,17 +2419,11 @@ async function playWordMode(withTranslation, isStale, startIndex, onlyOnce) {
         setStatus(`🔊 ${srcLang.toUpperCase()}: ${w.original} [${sourceLabel(source)}]`);
       }
       if (withTranslation && !shouldSkipWordTranslation(w.lower)) {
-        // Token angka/notasi (jam, desimal, dst) HARUS pakai bacaan dari
-        // applySpeechNumberRules, sama seperti teks terjemahan yang
-        // ditampilkan di layar (lihat prefetchPreviewTranslations) -
-        // mesin terjemah biasa sering mengembalikan hasil kosong/tak
-        // terbaca untuk token angka murni, sehingga suaranya dulu tidak
-        // pernah diputar sama sekali.
         const tr = isNumericToken(w.lower)
           ? applySpeechNumberRules(w.lower, tgtLang)
           : Object.prototype.hasOwnProperty.call(PHRASE_DICTIONARY_EN_ID, w.lower)
-          ? PHRASE_DICTIONARY_EN_ID[w.lower]
-          : await translateText(w.lower);
+            ? PHRASE_DICTIONARY_EN_ID[w.lower]
+            : await translateText(w.lower);
         if (isStale()) return;
         setTranslationDisplay(tr, false);
         if (tr) {
@@ -2788,15 +2692,6 @@ $('wordChips').addEventListener('click', (e) => {
 });
 let sentenceTapState = { idx: null, timer: null };
 $('sentenceList').addEventListener('click', (e) => {
-  const noteIcon = e.target.closest('.note-icon');
-  if (noteIcon) {
-    const sentEl = noteIcon.closest('.sentence');
-    const sIdx = sentEl ? Number(sentEl.dataset.sidx) : NaN;
-    const notes = !Number.isNaN(sIdx) ? SENTENCE_ADDED_WORD_NOTES[(state.sentences[sIdx] || '').trim().toLowerCase()] : null;
-    const note = notes && notes[Number(noteIcon.dataset.noteIdx)];
-    if (note) setStatus(`ℹ️ ${note.note}`);
-    return;
-  }
   const el = e.target.closest('.sentence');
   if (!el) return;
   const idx = Number(el.dataset.sidx);
