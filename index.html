@@ -2535,9 +2535,24 @@ async function generateAllAudio() {
   const srcLang = state.inputLang;
   const tgtLang = srcLang === 'id' ? 'en' : 'id';
   for (const w of state.words) {
-    addItem(w.original, srcLang);
+    // Token angka/jam (mis. "06.30") HARUS dibaca sesuai aturan pembacaan
+    // angka (applySpeechNumberRules) untuk audio Bahasa Inggris-nya juga -
+    // bukan dikirim mentah "06.30" ke mesin suara (yang gagal/salah baca).
+    // Ini menyamakan proses BUAT MASSAL dengan speak() yang dipakai saat
+    // pemutaran langsung (speak() sudah otomatis menerapkan aturan ini utk
+    // SEMUA teks yang diucapkan, termasuk kalimat - lihat fungsi speak()).
+    addItem(applySpeechNumberRules(w.original, srcLang), srcLang);
     if (!shouldSkipWordTranslation(w.lower)) {
-      const tr = await translateText(w.lower);
+      // Sama seperti di atas: kalau kata ini token angka, jangan kirim ke
+      // mesin terjemah biasa (yang tidak paham format angka/jam) - pakai
+      // aturan pembacaan angka langsung, SAMA seperti jalur tampilan
+      // pratinjau & jalur pemutaran langsung (playWordMode), supaya
+      // konsisten di mana pun teks/audio ini dipakai.
+      const tr = isNumericToken(w.lower)
+        ? applySpeechNumberRules(w.lower, tgtLang)
+        : Object.prototype.hasOwnProperty.call(PHRASE_DICTIONARY_EN_ID, w.lower)
+          ? PHRASE_DICTIONARY_EN_ID[w.lower]
+          : await translateText(w.lower);
       if (tr) addItem(tr, tgtLang);
     }
     prepDone++;
